@@ -119,6 +119,11 @@ subroutine scf_prog(input)
     !> Density matrix
     real(wp), allocatable :: pab(:,:)
 
+    !> Hamiltonian matrix
+    real(wp), allocatable :: hab(:,:)
+
+    !>Core Hamilton Matrix
+
     !> Eigenvalues and eigenvectors for LAPACK eigenvalue solver
     real(wp),allocatable :: eigval(:)
     real(wp),allocatable :: eigvec(:,:)
@@ -133,34 +138,45 @@ subroutine scf_prog(input)
     !> Hartree-Fock energy
     real(wp) :: escf
 
+    !> Counter
+    integer:: i
+
     !  declarations may not be complete, so you have to add your own soon.
     !  Create a program that reads the input and prints out final results.
     !  And, please, indent your code.
 
     !  Write the self-consistent field procedure in a subroutine.
-    integer:: i
 
 
-
+    !>generating file with results
     open(file="results.txt", newunit=io2)
+
+    !> Printing Banner
     call banner(io2)
 
-
+    !> Reading input file
     call input_reader(nat,nel,nbf,xyz,chrg,zeta,io2)
 
 
-
+    !>Calculatin nuclear repulsion
     call NucRep(nat,xyz,chrg,Erep,io2)
 
-    ng=3
+    !>PArameter for choose od the Basis Sets Type STO-(ng)G
+    ng=6
+
+    !>allocate memory for used arrays
     allocate (exponents(ng*nbf), coefficients(ng*nbf), sab(nbf,nbf), tab(nbf,nbf), vab(nbf,nbf), packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2))
-    allocate(eigval(nbf),eigvec(nbf,nbf),xab(nbf,nbf),Fock(nbf,nbf),cab(nbf,nbf))
+    allocate(eigval(nbf),eigvec(nbf,nbf),xab(nbf,nbf),Fock(nbf,nbf),cab(nbf,nbf),pab(nbf,nbf), hab(nbf,nbf))
     allocate(twointeg(((nbf*(nbf-1)/2+nbf)*(nbf*(nbf-1)/2+nbf)/2+(nbf*(nbf-1)/2+nbf)-1)))
 
+    !>Slater Expansion into Gaussians
     call expansion(ng, nbf, zeta, exponents, coefficients,io2)
 
+    !>Calculation of one electron integrals
     call oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,io2)
 
+
+    !> Text for result File
     write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
     write(io2,*)"                                           Packing Matrices                                           "
     write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
@@ -168,21 +184,29 @@ subroutine scf_prog(input)
     write(io2,*)"<<<<<<<<<<<<<<<<<     Packing order: (I) S matrix, (II) T Matrix, (III) V Matrix    >>>>>>>>>>>>>>>>>>>"
     write(io2,*)"======================================================================================================="
 
+    !>Packin one electron matrices
     call packer(sab,packsab, nbf,io2)
     call packer(tab,packtab, nbf,io2)
     call packer(vab,packvab, nbf,io2)
 
+!> Calculating orthonormalizer with use of symmetric procedure
   call orthonormalizer(packsab,sab,eigval,eigvec,xab,io2,nbf)
+
+  !>Initial Guess Annoucing (stdout+file)
   write(*,*)
   write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-  write(*,*)"                                     Initial guess of Fock Matrix                                      "
+  write(*,*)"                                             Initial guess                                       "
   write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+  write(*,*)
   write(io2,*)
   write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
   write(io2,*)"                                             Initial guess                                      "
   write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
 
+  !>Setting initial Fock Matrix as a core Hamiltonian
   Fock=tab+vab
+  write(*,*)
+  write(*,*)"                                         ✓ Fock matrix obtained        "
   write(io2,*)
   call write_matrix(Fock,"      ============================       Fock Matrix      ============================",io2)
   write(io2,*)"      =================================================================================="
@@ -191,6 +215,22 @@ subroutine scf_prog(input)
 
   call twoIntegrals(xyz, exponents, coefficients, twointeg, ng,nbf)
 
+  call new_density(nel, nbf,cab,pab,io2)
+  write(*,*)
+  write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+write(*,*)"                 <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+write(io2,*)
+write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+write(io2,*)"               <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+
+!HCore matrix as sum of kinetic and attraction matrices
+hab=tab+vab
+
+!Calculating Hartree Fock energy
+call HFenergy(nbf,escf,hab,Fock,pab)
+    write(*,*) escf+Erep
 
   deallocate(coefficients, exponents)
 
@@ -205,8 +245,11 @@ end subroutine scf_prog
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    PROGRAM TITLE     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 subroutine banner(io2)
+
+  !>Declaration of local variables
   integer :: io2
 
+  !>Print Banner /stdout+file
   write (*,*) "======================================================================================================="
   write (*,*) "                      ___                    ___                           ___   "
   write (*,*) "                     /  /\                  /  /\                         /  /\  "
@@ -220,7 +263,7 @@ subroutine banner(io2)
   write (*,*) "                     /__/:/                \  \::/                       \  \:\  "
   write (*,*) "                     \__\/ E L F            \__\/ O N S I S T E N T       \__\/ I E L D "
   write(*,*) ""
-  write(*,*) "                         A Hartree-Fock program with use of Rothan-Haal equations"
+  write(*,*) "                       A Hartree-Fock program with use of Roothaan-Haal equations"
   write (*,*) "======================================================================================================="
   write(*,*) ""
   write (io2,*) "======================================================================================================="
@@ -236,7 +279,7 @@ subroutine banner(io2)
   write (io2,*) "                     /__/:/                \  \::/                       \  \:\  "
   write (io2,*) "                     \__\/ E L F            \__\/ O N S I S T E N T       \__\/ I E L D "
   write (io2,*) ""
-  write (io2,*) "                         A Hartree-Fock program with use of Rothan-Haal equations"
+  write (io2,*) "                       A Hartree-Fock program with use of Roothaan-Haal equations"
   write (io2,*) "======================================================================================================="
   write(io2,*) ""
 end subroutine banner
@@ -246,20 +289,23 @@ end subroutine banner
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   INPUT READER   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-subroutine input_reader (nat,nel,nbf,xyz,chrg,zeta,io2)
+subroutine input_reader (nat,nel,nbf,xyz,chrg,zeta,io2)      !EXERCISE 2
 
   !>declaration of local variables
   character(len = 100):: input
   integer :: nat, nel, nbf, io, i, j,k,  dim,io2
   real(wp), allocatable :: xyz(:,:),chrg(:), zeta(:), basis(:)
 
-
+  !>Set of XYZ coordinates
   dim=3
   k=1
   j=1
+
+  !>Input file name over stdin
   write(*,*) "Give the input file name :"
   read(*,*) input
 
+  !>opening input file
   open(file="molecules/"//input, newunit=io)
   read(io,*) nat,nel,nbf
   allocate (xyz(dim,nat), chrg(nat), basis(nat), zeta(nbf))
@@ -279,8 +325,9 @@ subroutine input_reader (nat,nel,nbf,xyz,chrg,zeta,io2)
     end do
 
   close(io)
-!>variable check
 
+
+  !>variable check stdout+file
   write(*,*)
   write(*,*) "                      ==================================================="
   write(*,*) "                      ||               System parameters               ||"
@@ -323,18 +370,14 @@ end subroutine input_reader
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   NUCLEAR REPULSION ENERGY    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-subroutine NucRep(nat,xyz,chrg,Erep,io2)
+subroutine NucRep(nat,xyz,chrg,Erep,io2)     !EXERCISE 3
 
   !>Declaration of global variables
-  integer :: nat, io2
-  real(wp) :: Erep
+  integer :: nat, io2,i,j
+  real(wp) :: Erep, distance, partrep, diff(3)
   real(wp), allocatable :: xyz(:,:), chrg(:)
 
-  !>Declaration of local variables
-  integer :: i, j
-  real(wp) :: distance,partRep
-  real(wp) :: diff(3)
-
+  !>Printing some info text /stdout+file
   write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
   write(*,*)"                                 Calculating nuclear repulsion energy"
   write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
@@ -344,21 +387,33 @@ subroutine NucRep(nat,xyz,chrg,Erep,io2)
   write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
   write(io2,*)
 
+  !Setting counters and taking care about selfcounting
   j=1
   i=j+1
 
+  !treating a single atom case
   if (nat==1) then
     Erep=0
   else
+    !looping over all atom pairs
     do while (i<=nat)
+
+      !>Calculating nuclear repulsion energy between two attoms
       diff=xyz(1:3,j)-xyz(1:3,i)
       distance=sqrt(sum(diff**2))
       partRep=(chrg(j)*chrg(i))/distance**2
+      !>Summing energies to get the repulsion of the system
       Erep=Erep+partRep
+
       j=j+1
       i=i+1
+
     end do
+
   end if
+
+
+  !>Printing subroutine results /stdout+file
   write(*,*) "                      ==================================================="
   write(*,*) "                      ||            Nuclear repulsion energy           ||"
   write(*,*) "                      |–––––––––––––––––––––––––––––––––––––––––––––––––|"
@@ -379,20 +434,20 @@ end subroutine NucRep
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    SLATER EXPANSION   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-subroutine expansion(ng, nbf, zeta, exponents, coefficients,io2)
+subroutine expansion(ng, nbf, zeta, exponents, coefficients,io2)      !EXERCISE 4
 
-  !>Declaration of global variables
-  integer :: ng, nbf,io2
+  !>Declaration of local variables
+  integer :: ng, nbf,io2,i
   real(wp) ::zeta(:)
   real(wp) :: coefficients(ng*nbf), exponents(ng*nbf)
 
-  !>Declaration of local variables
-  integer :: i
-
-
+  !>Loop over all basis functions to calculate one electron integrals
   do i=0,nbf
+
     call expand_slater(ng, zeta(i+1), exponents(i*ng+1:(i+1)*ng),coefficients(i*ng+1:(i+1)*ng))
+
   end do
+  !>
   write(*,*)
   write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
   write(*,*)"                                            Slater Expansion                                           "
@@ -413,7 +468,7 @@ end subroutine expansion
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    ONE ELECTRON INTEGRALS   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,io2)
+subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,io2)  !EXERCISE 5
 
   !>Declaration of global variables
   real(wp) :: xyz(:,:), chrg(:), coefficients(:), exponents(:), sab(:,:), tab(:,:), vab(:,:)
@@ -464,7 +519,7 @@ end subroutine oneelint
 
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    PACKING OF SYMMETRIC MATRICES   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine packer(matrix,packmatrix,nbf,io2)
+  subroutine packer(matrix,packmatrix,nbf,io2)      !EXERCISE 6
 
     !>Declaration of local variables
     integer :: nbf, i,j,k,io2
@@ -472,10 +527,17 @@ end subroutine oneelint
     real(wp), allocatable:: singlem(:,:)
 
     allocate(singlem(nbf,nbf))
+
+    !>creating a matrix equivalent with single precission for symmetry check
     singlem=sngl(matrix)
+
     k=1
     j=1
+
+    !>Symmetry check
     if(all(transpose(singlem)==singlem)) then
+
+      !>Packing matrices into a vector
      do i=1,nbf
        j=1
        do while (j<=i)
@@ -484,6 +546,8 @@ end subroutine oneelint
          j=j+1
        end do
      end do
+
+     !>Text output into file
      write(io2,*)
      write(io2,*)"                                       Matrix succsesfully packed."
     else
@@ -497,7 +561,7 @@ end subroutine oneelint
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    SYMMETRIC ORTHONORMALIZER  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- subroutine orthonormalizer(packsab,sab,eigval,eigvec,xab,io2,nbf)
+ subroutine orthonormalizer(packsab,sab,eigval,eigvec,xab,io2,nbf)     !EXERCISE 7
 
     !>Declaration of local variables
     integer:: stat, io2, nbf,i,j
@@ -536,8 +600,10 @@ end subroutine oneelint
     end do
 
   ! caLCULATING SYMMETRIC ORTHONORMALIZER
-  xab=matmul(halfs,transpose(eigvec))
-  xab=matmul(eigvec,xab)
+    xab=matmul(eigvec,halfs)
+  xab=matmul(xab,transpose(eigvec))
+
+
 
       write(*,*)
        write(*,*)"                         –––––––   Symmetric orthonormalizer obtained   –––––––"
@@ -557,7 +623,7 @@ end subroutine oneelint
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  NEW COEFFICIENTS   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  subroutine coeff(cab,Fock,xab,nbf,io2)
+  subroutine coeff(cab,Fock,xab,nbf,io2) !Exercise 8.3
 
     !>Declaration of local variables
     integer :: io2,nbf,stat,i,j,k,l, ij,kl,ijkl, m, n, final
@@ -568,6 +634,8 @@ end subroutine oneelint
 
     Fockprim=matmul(Fock,xab)
     Fockprim=matmul(transpose(xab),Fockprim)
+    write(io2,*)
+    call write_matrix(Fockprim, "F'",io2)
 
     call packer(Fockprim,packFockprim,nbf,io2)
 
@@ -577,8 +645,7 @@ end subroutine oneelint
 
     cab=matmul(xab,eigvec)
     write(*,*)
-    write(*,*)
-    write(*,*)"                            ––––––    Orbital coefficients obtained    –––––––"
+    write(*,*)"                                    ✓ Orbital coefficients obtained    "
     write(io2,*)
     write(io2,*)
     call write_matrix(cab,"         ========================    Orbital coefficients    =========================",io2)
@@ -593,6 +660,86 @@ end subroutine oneelint
   !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END NEW COEFFICIENTS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+  !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  NEW DENISTY MATRIX   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+  subroutine new_density(nel, nbf,cab,pab,io2) !Exercise 8.4
+
+    integer:: i, j, nel,nbf,io2
+    real(wp)::cab(nbf,nbf), pab(nbf,nbf)
+    real(wp), allocatable :: nocc(:,:)
+
+    allocate(nocc(nbf,nbf))
+
+    nocc=0
+    do i=1,nel/2
+      do j=1,nel/2
+        if(i==j) then
+          nocc(i,j)=2
+        end if
+      end do
+    end do
+
+   pab=matmul(nocc,transpose(cab))
+    pab=matmul(cab,pab)
+    write(*,*)
+    write(*,*)"                                       ✓ Density matrix obtained       "
+    write(*,*)
+    write(io2,*)
+    write(io2,*)
+    call write_matrix(pab,"            ========================    Density Matrix    =========================",io2)
+    write(io2,*)"      =================================================================================="
+    deallocate(nocc)
+
+  end subroutine new_density
+
+
+  !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END NEW DENSITY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+  !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  HF ENERGY >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+  subroutine HFenergy(nbf,escf,hab,Fock,pab)
+
+    !>Declaration of local variables
+    integer:: i, j,nbf
+    real(wp):: escf
+    real(wp):: hab(nbf,nbf),Fock(nbf,nbf),pab(nbf,nbf)
+    real(wp), allocatable :: Energy(:,:)
+
+    escf=0
+
+    !>Allocate array space
+    allocate(Energy(nbf,nbf))
+
+    !>Calculating matrix for energy calculation
+    Energy=matmul((hab+Fock), pab)
+
+
+    !>Calculate the E_{HF} as a half of the matrix trace
+    do i=1,nbf
+
+      do j=1,nbf
+
+        if(i==j) then
+
+          escf=escf+0.5_wp*(Energy(i,i))
+
+        end if
+
+      end do
+
+    end do
+
+    !>Free array space
+    deallocate(Energy)
+
+  end subroutine HFenergy
+
+
+  !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END HF ENERGY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  TWO ELECTRON INTEGRALS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
   subroutine twoIntegrals(xyz, exponents, coefficients, twointeg, ng,nbf)
 
@@ -641,7 +788,7 @@ end subroutine oneelint
 
 
                   call twoint(xyz(1:3,i), xyz(1:3,j), xyz(1:3,k), xyz(1:3,l), exponents(ng*(i-1)+1:ng*i), exponents(ng*(j-1)+1:ng*j), exponents(ng*(k-1)+1:ng*k), exponents(ng*(l-1)+1:ng*l), coefficients(ng*(i-1)+1:ng*i),coefficients(ng*(j-1)+1:ng*j), coefficients(ng*(k-1)+1:ng*k), coefficients(ng*(l-1)+1:ng*l), twointeg(ijkl))
-                  write(*,*)ijkl!, twointeg(ijkl)
+                !  write(*,*)ijkl!, twointeg(ijkl)
 
 
               end do
@@ -652,7 +799,7 @@ end subroutine oneelint
 
       end do
 
-      call write_matrix(twointeg, "Two electron integrals")
   end subroutine twoIntegrals
+      !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ENSD TWO ELECTRON INTEGRALS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 end module scf_main
