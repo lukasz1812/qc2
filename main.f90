@@ -1,6 +1,504 @@
 !      ____       __
 !     / /| |     / /
-!    /   | | /| / /   this program was written by Łukasz Wantoch
+!    / /2617
+
+   textlength=len(trim(name))
+
+2618
+
+​
+
+2619
+
+​
+
+2620
+
+   textcenter1=((length-3)-textlength)/2
+
+2621
+
+   centering=(103-length)/2
+
+2622
+
+​
+
+2623
+
+   check=modulo(textlength,2)
+
+2624
+
+​
+
+2625
+
+   if(check==1) then
+
+2626
+
+     textcenter2=textcenter1-1
+
+2627
+
+   else
+
+2628
+
+     textcenter1=textcenter1-1
+
+2629
+
+     textcenter2=textcenter1
+
+2630
+
+   end if
+
+2631
+
+​
+
+2632
+
+ cmft="(xxX,a,n(f14.7)a)"
+
+2633
+
+ cmft2="(xxX,a,xxX,a,xxX,a)"
+
+2634
+
+ cmft3="(xxX,a,xxX,a)"
+
+2635
+
+​
+
+2636
+
+​
+
+2637
+
+  write(cmft(8:8),'(I1)') dimension
+
+2638
+
+  write(cmft(2:3), "(I2)") centering
+
+2639
+
+  write(cmft(8:8),'(I1)') dimension
+
+2640
+
+  write(cmft(2:3), "(I2)") centering
+
+2641
+
+  write(cmft2(2:3), "(I2)") centering
+
+2642
+
+  write(cmft2(8:9), "(I2)") textcenter1
+
+2643
+
+  write(cmft2(14:15), "(I2)") textcenter2
+
+2644
+
+  !write(cmft2(8:9), "(I2)") length-5
+
+2645
+
+  write(cmft3(2:3), "(I2)") centering
+
+2646
+
+  write(cmft3(8:9), "(I2)") length-5
+
+2647
+
+​
+
+2648
+
+   write(iunit,cmft2)" ╔═",trim(name),"═╗"
+
+2649
+
+   write(iunit,cmft3)" ║","  ║"
+
+2650
+
+   do i=1, dimension
+
+2651
+
+     write(iunit,cmft)" ║", matrix(1:dimension, i), "    ║"
+
+2652
+
+   end do
+
+2653
+
+   write(iunit,cmft3)" ╚═","═╝"
+
+2654
+
+   write(iunit,*)
+
+2655
+
+end subroutine  write_nice_matrix
+
+2656
+
+​
+
+2657
+
+end module scf_main
+
+2658
+
+​2617
+
+   textlength=len(trim(name))
+
+2618
+
+​
+
+2619
+
+​
+
+2620
+
+   textcenter1=((length-3)-textlength)/2
+
+2621
+
+   centering=(103-length)/2
+
+2622
+
+​
+
+2623
+
+   check=modulo(textlength,2)
+
+2624
+
+​
+
+2625
+
+   if(check==1) then
+
+2626
+
+     textcenter2=textcenter1-1
+
+2627
+
+   else
+
+2628
+
+     textcenter1=textcenter1-1
+
+2629
+
+     textcenter2=textcenter1
+
+2630
+
+   end if
+
+2631
+
+​
+
+2632
+
+ cmft="(xxX,a,n(f14.7)a)"
+
+2633
+
+ cmft2="(xxX,a,xxX,a,xxX,a)"
+
+2634
+
+ cmft3="(xxX,a,xxX,a)"
+
+2635
+
+​
+
+2636
+
+​
+
+2637
+
+  write(cmft(8:8),'(I1)') dimension
+
+2638
+
+  write(cmft(2:3), "(I2)") centering
+
+2639
+
+  write(cmft(8:8),'(I1)') dimension
+
+2640
+
+  write(cmft(2:3), "(I2)") centering
+
+2641
+
+  write(cmft2(2:3), "(I2)") centering
+
+2642
+
+  write(cmft2(8:9), "(I2)") textcenter1
+
+2643
+
+  write(cmft2(14:15), "(I2)") textcenter2
+
+2644
+
+  !write(cmft2(8:9), "(I2)") length-5
+
+2645
+
+  write(cmft3(2:3), "(I2)") centering
+
+2646
+
+  write(cmft3(8:9), "(I2)") length-5
+
+2647
+
+​
+
+2648
+
+   write(iunit,cmft2)" ╔═",trim(name),"═╗"
+
+2649
+
+   write(iunit,cmft3)" ║","  ║"
+
+2650
+
+   do i=1, dimension
+
+2651
+
+     write(iunit,cmft)" ║", matrix(1:dimension, i), "    ║"
+
+2652
+
+   end do
+
+2653
+
+   write(iunit,cmft3)" ╚═","═╝"
+
+2654
+
+   write(iunit,*)
+
+2655
+
+end subroutine  write_nice_matrix
+
+2656
+
+​
+
+2657
+
+end module scf_main
+
+2658
+
+​2617
+
+   textlength=len(trim(name))
+
+2618
+
+​
+
+2619
+
+​
+
+2620
+
+   textcenter1=((length-3)-textlength)/2
+
+2621
+
+   centering=(103-length)/2
+
+2622
+
+​
+
+2623
+
+   check=modulo(textlength,2)
+
+2624
+
+​
+
+2625
+
+   if(check==1) then
+
+2626
+
+     textcenter2=textcenter1-1
+
+2627
+
+   else
+
+2628
+
+     textcenter1=textcenter1-1
+
+2629
+
+     textcenter2=textcenter1
+
+2630
+
+   end if
+
+2631
+
+​
+
+2632
+
+ cmft="(xxX,a,n(f14.7)a)"
+
+2633
+
+ cmft2="(xxX,a,xxX,a,xxX,a)"
+
+2634
+
+ cmft3="(xxX,a,xxX,a)"
+
+2635
+
+​
+
+2636
+
+​
+
+2637
+
+  write(cmft(8:8),'(I1)') dimension
+
+2638
+
+  write(cmft(2:3), "(I2)") centering
+
+2639
+
+  write(cmft(8:8),'(I1)') dimension
+
+2640
+
+  write(cmft(2:3), "(I2)") centering
+
+2641
+
+  write(cmft2(2:3), "(I2)") centering
+
+2642
+
+  write(cmft2(8:9), "(I2)") textcenter1
+
+2643
+
+  write(cmft2(14:15), "(I2)") textcenter2
+
+2644
+
+  !write(cmft2(8:9), "(I2)") length-5
+
+2645
+
+  write(cmft3(2:3), "(I2)") centering
+
+2646
+
+  write(cmft3(8:9), "(I2)") length-5
+
+2647
+
+​
+
+2648
+
+   write(iunit,cmft2)" ╔═",trim(name),"═╗"
+
+2649
+
+   write(iunit,cmft3)" ║","  ║"
+
+2650
+
+   do i=1, dimension
+
+2651
+
+     write(iunit,cmft)" ║", matrix(1:dimension, i), "    ║"
+
+2652
+
+   end do
+
+2653
+
+   write(iunit,cmft3)" ╚═","═╝"
+
+2654
+
+   write(iunit,*)
+
+2655
+
+end subroutine  write_nice_matrix
+
+2656
+
+​
+
+2657
+
+end module scf_main
+
+2658
+
+​ | | /| / /   this program was written by Łukasz Wantoch
 !   / /__| |/ |/ /     During the laboratory course of WP 4 in summerterm 2021
 !  /_____/__/|__/       at the Rheinrich-Wilhelm-University of Bonn
 
@@ -403,11 +901,13 @@ subroutine scf_prog(input)
 
     case default
       write(*,*)
-      write(*,*)"                                   ERROR!!"
-      write(*,*)"        No version chosen, check your input file and start again."
-      write(*,*)"        Versions are:"
-      write(*,*)"                      RHF for closed shell calculation"
-      write(*,*)"                      UHF for  open  shell calculation"
+      write(*,*)"                   ┌────────────────────────────────────────────────────────┐"
+      write(*,*)"                                              ERROR                                  "
+      write(*,*)"                   └────────────────────────────────────────────────────────┘"
+      write(*,*)"                    No version chosen, check your input file and start again."
+      write(*,*)"                        Versions are:"
+      write(*,*)"                                       RHF for closed shell calculation"
+      write(*,*)"                                       UHF for  open  shell calculation"
       write(*,*)
       write(*,*)
 
@@ -725,8 +1225,7 @@ end subroutine expansion
     write(*,*)
     write(*,*)"                                         ✓ Fock matrix obtained        "
     write(io2,*)
-    call write_matrix(Fock,"      ╔══════════════════════════        Fock Matrix        ══════════════════════════╗",io2)
-    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(Fock,"Fock Matrix",io2)
     end if
 
     !>calculating coefficients from the initial Fock matrix
@@ -776,12 +1275,10 @@ end subroutine expansion
     !Printing results and initial HF energy /stdout+file
 
 
-    call write_matrix(gabcd,"           ╔══════════════════════════      G Tensor       ══════════════════════════╗     ",io2)
-    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(gabcd,"G Tensor",io2)
     write(io2,*)
 
-    call write_matrix(Fock_new,"           ╔═════════════════════════       Fock Matrix      ═════════════════════════╗     ",io2)
-    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(Fock_new,"Fock Matrix",io2)
     write(io2,*)
     end if
 
@@ -960,17 +1457,14 @@ subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,i
     write(*,*)"                     –––––––   Done, all matrices saved in results.txt   –––––––"
     write(*,*)
     write(io2,*)
-    write(io2,*)"╔═════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-    call write_matrix(sab, "                                            Overlap Matrix S   ",io2)
-    write(io2,*)"╚═════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(sab, "Overlap Matrix S",io2)
+
     write(io2,*)
-    write(io2,*)"╔═════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-    call write_matrix(tab, "                                            Kinetic Matrix T", io2)
-    write(io2,*)"╚═════════════════════════════════════════════════════════════════════════════════════════════════════╝ "
+
+    call write_nice_matrix(tab, "Kinetic Matrix T", io2)
+
     write(io2,*)
-    write(io2,*)"╔═════════════════════════════════════════════════════════════════════════════════════════════════════╗"
-    call write_matrix(vab, "                                     Nuclear Attraction Matrix V", io2)
-    write(io2,*)"╚═════════════════════════════════════════════════════════════════════════════════════════════════════╝ "
+    call write_nice_matrix(vab, "V Matrix", io2)
   end if
 end subroutine oneelint
 
@@ -1078,8 +1572,8 @@ end subroutine oneelint
        write(*,*)
        write(*,*)"                         –––––––   Symmetric orthonormalizer obtained   –––––––"
        write(io2,*)
-       call write_matrix(xab,"      ╔═══════════════════    Symmetric orthonormalizer obtained    ━━━━━━━━━━━━━━━━━━━━",io2)
-       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+       call write_nice_matrix(xab,"Symm. Orthonormalizer",io2)
+
 
 
     end if
@@ -1113,8 +1607,8 @@ end subroutine oneelint
   if(ausgabe_erfolgt==0) then
     !Print the F' matrix into result File
     write(io2,*)
-    call write_matrix(Fockprim,"       ╔══════════════════════════        F'ock Matrix        ══════════════════════════╗    ",io2)
-    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(Fockprim,"F'ock Matrix",io2)
+
   end if
 
     !Packing F' into vector
@@ -1134,8 +1628,8 @@ end subroutine oneelint
       write(io2,*)
       write(io2,*)
 
-      call write_matrix(cab,"         ╔═══════════════════════   Orbital coefficients    ════════════════════════╗",io2)
-      write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+      call write_nice_matrix(cab,"Orbital coefficients",io2)
+
 
 
     end if
@@ -1183,8 +1677,7 @@ end subroutine oneelint
       write(*,*)
       write(io2,*)
       write(io2,*)
-      call write_matrix(pab,"            ╔═══════════════════════    Density Matrix    ════════════════════════╗",io2)
-      write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+      call write_nice_matrix(pab,"Density Matrix",io2)
     end if
 
     deallocate(nocc)
@@ -1413,14 +1906,13 @@ subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xy
     !Printing some results /std+file
     write(*,*)"                                          ✓ G tensor obtained       "
     write(io2,*)"                                      ✓ New G tensor obtained       "
-    call write_matrix(gabcd,"                ╔════════════════════════      G Tensor      ════════════════════════╗",io3)
-    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(gabcd,"G Tensor",io3)
     write(io3,*)
     write(*,*)
     write(*,*)"                                      ✓ New Fock Matrix obtained       "
     write(io2,*)"                                      ✓ New Fock Matrix obtained       "
-    call write_matrix(Fock_new,"               ╔═════════════════════════      Fock Matrix      ════════════════════════╗",io3)
-    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(Fock_new,"Fock Matrix",io3)
+
     write(io3,*)
   end if
 
@@ -1744,8 +2236,7 @@ delta=1
 
          end do
 
-         call write_matrix(xyz,"            ========================  Final geometry    =========================")
-         write(*,*)"      =================================================================================="
+         call write_matrix(xyz,"Final geometry/[Bohr]")
 
          call write_matrix(xyz,"            ========================  Final geometry    =========================",io2)
          write(io2,*)"      =================================================================================="
@@ -2087,12 +2578,11 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
      Fockbeta=tab+vab
 
      if(ausgabe_erfolgt==0) then
-     write(*,*)
-     write(*,*)"                                         ✓ Fock matrices obtained        "
-     write(io2,*)
-     call write_matrix(Fockalpha,"      ╔═════════════════════════       Fock α Matrix      ════════════════════════╗",io2)
-      write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
-     end if
+       write(*,*)
+       write(*,*)"                                         ✓ Fock matrices obtained        "
+       write(io2,*)
+       call write_nice_matrix(Fockalpha,"Fock α Matrix",io2)
+    end if
 
      !>calculating coefficients from the initial Fock matrix
      call coeff(cabalpha,Fockalpha,xab,nbf,io2,ausgabe_erfolgt)
@@ -2105,16 +2595,16 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
      if(ausgabe_erfolgt==0) then
 
      !Calculating new density matrices for both spins
-     call unres_new_density(nelalpha, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
-     call unres_new_density(nelbeta, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
-     write(*,*)
-     write(*,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-     write(*,*)"                <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
-     write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-     write(io2,*)
-     write(io2,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-     write(io2,*)"              <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
-     write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      call unres_new_density(nelalpha, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
+      call unres_new_density(nelbeta, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
+      write(*,*)
+      write(*,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+      write(*,*)"                <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+      write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      write(io2,*)
+      write(io2,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+      write(io2,*)"              <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+      write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
      end if
 
@@ -2144,15 +2634,15 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
      if(ausgabe_erfolgt==0) then
        !Printing results and initial HF energy /stdout+file
-       call write_matrix(gabcd,"           ╔═════════════════════════      G Tensor       ════════════════════════╗     ",io2)
-       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+       call write_nice_matrix(gabcd,"G Tensor",io2)
+
        write(io2,*)
-       call write_matrix(Fock_newalpha,"         ╔═════════════════════════       Fock α Matrix      ════════════════════════╗    ",io2)
-       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+       call write_nice_matrix(Fock_newalpha,"Fock α Matrix",io2)
+
        write(io2,*)
        write(io2,*)
-       call write_matrix(Fock_newbeta,"         ╔═════════════════════════       Fock β Matrix      ════════════════════════╗     ",io2)
-       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+       call write_nice_matrix(Fock_newbeta,"Fock β Matrix",io2)
+
        write(io2,*)
      end if
 
@@ -2498,20 +2988,20 @@ subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,
     write(*,*)
     write(*,*)"                                          ✓ G tensor obtained       "
     write(io2,*)"                                      ✓ New G tensor obtained       "
-    call write_matrix(gabcd,"                ╔════════════════════════      G Tensor      ════════════════════════╗",io3)
-    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(gabcd,"G Tensor",io3)
+
     write(io3,*)
     write(*,*)
     write(*,*)"                                      ✓ New Fock α Matrix obtained       "
     write(*,*)
     write(*,*)"                                      ✓ New Fock β Matrix obtained       "
     write(io2,*)"                                    ✓ New Fock α Matrix obtained       "
-    call write_matrix(Fock_newalpha,"               ╔════════════════════════     Fock α Matrix     ════════════════════════╗",io3)
-    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(Fock_newalpha,"Fock α Matrix",io3)
+
     write(io3,*)
     write(io2,*)"                                    ✓ New Fock β Matrix obtained       "
-    call write_matrix(Fock_newbeta,"               ╔════════════════════════      Fock β Matrix      ════════════════════════╗",io3)
-    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+    call write_nice_matrix(Fock_newbeta,"Fock β Matrix",io3)
+
     write(io3,*)
   end if
 
@@ -2594,10 +3084,72 @@ write(*,*)i, "i", j,"j"
 
 end do
 
-call write_matrix(spinsab, "SPIN OVERLAP")
+call write_nice_matrix(spinsab, "SPIN OVERLAP")
 
  ! call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),exponents(ng*(i-1)+1:ng*i),exponents(ng*(j-1)+1:ng*j),cab(ng*(i-1)+1:ng*i),cab(ng*(j-1)+1:ng*j), spinsab(i,j), spintab(i,j), spinvab(i,j))
 
 end subroutine spin_contamination
+
+subroutine write_nice_matrix(matrix,name,unit)
+
+  !>Declaration of local variables
+  integer:: dimension, i,io2, length, centering,iunit, textlength,textcenter1, textcenter2, check
+  real(wp) :: matrix(:,:)
+  character(len=18):: cmft
+  character(len=19)::cmft2
+  character(len=13)::cmft3
+  character(len=*),intent(in),optional :: name
+  integer, intent(in),optional :: unit
+
+
+
+  if (present(unit)) then
+      iunit = unit
+  else
+      iunit = output_unit
+  end if
+  !>checking the dimensionality of the matrix
+   dimension=(size(matrix))
+   dimension=abs(sqrt(real(dimension)))
+   length=dimension*14+7
+   textlength=len(trim(name))
+
+
+   textcenter1=((length-3)-textlength)/2
+   centering=(103-length)/2
+
+   check=modulo(textlength,2)
+
+   if(check==1) then
+     textcenter2=textcenter1-1
+   else
+     textcenter1=textcenter1-1
+     textcenter2=textcenter1
+   end if
+
+ cmft="(xxX,a,n(f14.7)a)"
+ cmft2="(xxX,a,xxX,a,xxX,a)"
+ cmft3="(xxX,a,xxX,a)"
+
+
+  write(cmft(8:8),'(I1)') dimension
+  write(cmft(2:3), "(I2)") centering
+  write(cmft(8:8),'(I1)') dimension
+  write(cmft(2:3), "(I2)") centering
+  write(cmft2(2:3), "(I2)") centering
+  write(cmft2(8:9), "(I2)") textcenter1
+  write(cmft2(14:15), "(I2)") textcenter2
+  !write(cmft2(8:9), "(I2)") length-5
+  write(cmft3(2:3), "(I2)") centering
+  write(cmft3(8:9), "(I2)") length-5
+
+   write(iunit,cmft2)" ╔═",trim(name),"═╗"
+   write(iunit,cmft3)" ║","  ║"
+   do i=1, dimension
+     write(iunit,cmft)" ║", matrix(1:dimension, i), "    ║"
+   end do
+   write(iunit,cmft3)" ╚═","═╝"
+   write(iunit,*)
+end subroutine  write_nice_matrix
 
 end module scf_main
