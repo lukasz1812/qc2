@@ -88,6 +88,8 @@ subroutine scf_prog(input)
     !> Atom coordinates of the system, all distances in bohr
     real(wp), allocatable :: xyz(:,:)
 
+    !> Orbital coordinates of the system, all distances in bohr
+    real(wp), allocatable :: aufpunkt(:,:)
 
     !> Nuclear charges
     real(wp), allocatable :: chrg(:)
@@ -141,7 +143,7 @@ subroutine scf_prog(input)
     real(wp),allocatable :: xab(:,:)
 
     !> Pointer for result file
-    integer :: io,io2,io3
+    integer :: io,io2,io3,io4
 
     !>Control over print on screen
     integer:: ausgabe_erfolgt
@@ -165,17 +167,17 @@ subroutine scf_prog(input)
 
     !> Test of directory
     logical:: dirExists
+    character(len=8)::option
+    real(wp), allocatable:: density_point(:)
+    allocate(density_point(3))
+
+
 
     !  declarations may not be complete, so you have to add your own soon.
     !  Create a program that reads the input and prints out final results.
     !  And, please, indent your code.
 
     !  Write the self-consistent field procedure in a subroutine.
-
-
-
-
-
 
     !> Printing Banner
     call banner
@@ -191,18 +193,19 @@ subroutine scf_prog(input)
 
     ! Check if the directory exists first
     inquire( file=output_name//"-results"//'/.', exist=dirExists )
-    write(*,*)dirExists, "dirExist"
-
     if (dirExists) then
-
+      write(*,*)
+      write(*,*)"Output files directory already created, old files will be overwrritten."
     else
+      write(*,*)
+      write(*,*)"Output files directory created"
     CALL EXECUTE_COMMAND_LINE("mkdir "//output_name//"-results")
   end if
     !>generating file with results
     open(file=output_name//"-results/"//output_name//"-results.out", newunit=io2)
 
     !> Print banner in output file
-    write (io2,*) "======================================================================================================="
+    write (io2,*) "═══════════════════════════════════════════════════════════════════════════════════════════════════════"
     write (io2,*) "                      ___                    ___                           ___   "
     write (io2,*) "                     /  /\                  /  /\                         /  /\  "
     write (io2,*) "                    /  /:/_                /  /:/                        /  /:/_ "
@@ -216,7 +219,7 @@ subroutine scf_prog(input)
     write (io2,*) "                     \__\/ E L F            \__\/ O N S I S T E N T       \__\/ I E L D "
     write (io2,*) ""
     write (io2,*) "                       A Hartree-Fock program with use of Roothaan-Haal equations"
-    write (io2,*) "======================================================================================================="
+    write (io2,*) "═══════════════════════════════════════════════════════════════════════════════════════════════════════"
     write(io2,*) ""
 
     open(file=output_name//"-results/"//output_name//"-SCF-results.out", newunit=io3)
@@ -238,7 +241,7 @@ subroutine scf_prog(input)
       !Printing what we're gonna do /stdout+file
       write(*,*)
       write(*,*)"#######################################################################################################"
-      write(*,*)"#########################                     Restricted                     ##########################"
+      write(*,*)"########################                     Restricted                     ##########################"
       write(*,*)"#######################                     Hartree - Fock                     ########################"
       write(*,*)"#######################################################################################################"
       write(*,*)
@@ -250,9 +253,9 @@ subroutine scf_prog(input)
       write(io2,*)
 
       !> Reading input file
-      call input_reader(version,input_name,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis)
+      call input_reader(version,input_name,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis, Option,density_point)
       call cpu_time(start)
-
+        allocate(aufpunkt(3,nbf))
       ausgabe_erfolgt=0
 
       !>Calculating nuclear repulsion
@@ -270,7 +273,7 @@ subroutine scf_prog(input)
 
 
       !>Starting the restricted Hartree Fock Routine
-      call restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt)
+      call restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, zeta, aufpunkt, pab)
 
 
       call cpu_time(finish)
@@ -287,14 +290,60 @@ subroutine scf_prog(input)
       write(io2,*)"Thereof: for tei         ", finishtei-starttei, "s"
       write(io2,*)"         for SCF         ", finishscf-startscf, "s"
 
+
+      if(trim(option)=="none") then
+
+      else
+        write(*,*)
+        write(*,*)"          ┌──────────────────────────────────────────────────────────────────────────┐"
+        write(*,*)"          │                                  OPTIONS                                 │"
+        write(*,*)"          └──────────────────────────────────────────────────────────────────────────┘"
+        write(io2,*)
+        write(io2,*)"          ┌──────────────────────────────────────────────────────────────────────────┐"
+        write(io2,*)"          │                                  OPTIONS                                 │"
+        write(io2,*)"          └──────────────────────────────────────────────────────────────────────────┘"
+
+
+        !> Option selection
+        select case(Option)
+          case ("opt_geom")
+                open(file=output_name//"-results/"//"geoopt-results.out", newunit=io4)
+              write(*,*)"                    • Geometry optimization"
+              write(io2,*)"                    • Geometry optimization"
+              write(io4,*)"                    • Geometry optimization"
+              call opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf, ausgabe_erfolgt,io2, zeta, aufpunkt,pab,io4)
+              close(io4)
+          case ("opt_expo")
+            open(file=output_name//"-results/"//"expoopt-results.out", newunit=io4)
+            write(*,*)"                    • Optimization of Slater exponents"
+            write(io2,*)"                    • Optimization of Slater exponents"
+            write(io4,*)"                    • Optimization of Slater exponents"
+            call opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf,aufpunkt,pab,io4)
+            close(io4)
+          case ("chrg_den")
+            write(*,*)"                    • Charge density calculation"
+            write(io2,*)"                    • Charge denisty calculation"
+
+            call charge_density(zeta, pab, cab, nbf, aufpunkt,density_point,io2)
+
+          case default
+            write(*,*)
+            write(*,*)"                    ┌──────────────────────────────────────────────────────┐"
+            write(*,*)"                                              ERROR                                  "
+            write(*,*)"                    └──────────────────────────────────────────────────────┘"
+            write(*,*)
+            write(*,*)"                     No correct option chosen, check your input file"
+            write(*,*)"                     Options are:"
+            write(*,*)"                                     none : no options"
+            write(*,*)"                                 opt_geom : geometry optimization"
+            write(*,*)"                                 opt_expo : optimization of Slater exponents"
+            write(*,*)"                                 chrg_den : calculation of charge_density."
+        end select
+      end if
       !call  mulliken(nbf,pab,sab)
 
-      !call opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf, ausgabe_erfolgt,io2)
-
-      !call opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf)
-
       !deallocate (exponents, coefficients)
-      deallocate(eigval,eigvec,xab,Fock,pab, hab, Fock_new,gabcd)
+      deallocate(eigval,eigvec,xab,Fock, hab, Fock_new,gabcd)
 
     case ("UHF")
 
@@ -316,7 +365,7 @@ subroutine scf_prog(input)
       !> Reading input file
       call unrestricted_input_reader(version,input_name,io,nat,nelalpha,nelbeta,nbf,xyz,chrg,zeta,io2,basis)
       call cpu_time(start)
-
+      allocate(aufpunkt(3,nbf))
       ausgabe_erfolgt=0
 
       !>Calculating nuclear repulsion
@@ -333,7 +382,7 @@ subroutine scf_prog(input)
       call expansion(ng, nbf, zeta, exponents, coefficients,io2,ausgabe_erfolgt)
 
       !>Starting the restricted Hartree Fock Routine
-      call unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt)
+      call unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, aufpunkt, zeta)
 
       call cpu_time(finish)
       write(*,*)
@@ -354,8 +403,15 @@ subroutine scf_prog(input)
 
     case default
       write(*,*)
-      write(*,*) "ERROR!!"
-      write(*,*)"No version chosen, check your input file and start again."
+      write(*,*)"                                   ERROR!!"
+      write(*,*)"        No version chosen, check your input file and start again."
+      write(*,*)"        Versions are:"
+      write(*,*)"                      RHF for closed shell calculation"
+      write(*,*)"                      UHF for  open  shell calculation"
+      write(*,*)
+      write(*,*)
+
+
 
     end select
 
@@ -374,8 +430,8 @@ subroutine banner
 
 
   !>Print Banner /stdout
-  write (*,*) "======================================================================================================="
-  write (*,*) "                      ___                    ___                           ___   "
+  write (*,*) "═══════════════════════════════════════════════════════════════════════════════════════════════════════"
+    write (*,*) "                      ___                    ___                           ___   "
   write (*,*) "                     /  /\                  /  /\                         /  /\  "
   write (*,*) "                    /  /:/_                /  /:/                        /  /:/_ "
   write (*,*) "                   /  /:/ /\              /  /:/                        /  /:/ /\"
@@ -388,7 +444,7 @@ subroutine banner
   write (*,*) "                     \__\/ E L F            \__\/ O N S I S T E N T       \__\/ I E L D "
   write(*,*) ""
   write(*,*) "                       A Hartree-Fock program with use of Roothaan-Haal equations"
-  write (*,*) "======================================================================================================="
+  write (*,*)"═══════════════════════════════════════════════════════════════════════════════════════════════════════"
   write(*,*) ""
 
 end subroutine banner
@@ -398,13 +454,14 @@ end subroutine banner
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   INPUT READER   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-subroutine input_reader(version,input,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis)     !EXERCISE 2
+subroutine input_reader(version,input,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis,option,density_point)     !EXERCISE 2
 
   !>declaration of local variables
   character(len = 100):: input
   character(len = 3):: version
+  character(len=8)::option
   integer :: nat, nel, nbf, io, i, j,k,  dim,io2
-  real(wp), allocatable :: xyz(:,:),chrg(:), zeta(:), basis(:)
+  real(wp), allocatable :: xyz(:,:),chrg(:), zeta(:), basis(:), density_point(:)
 
   !>Set of XYZ coordinates
   dim=3
@@ -440,45 +497,51 @@ subroutine input_reader(version,input,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis)   
         end do
 
       end do
+      read(io,*)option
 
+      if(option=="chrg_den")then
+        read(io,*)density_point(1:3)
+        close(io)
+      else
     close(io)
+  end if
 
 
-    !>variable check stdout+file
+    !>variab│ e check stdout+file
     write(*,*)
-    write(*,*) "                          ==================================================="
-    write(*,*) "                          ||               System parameters               ||"
-    write(*,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-    write(*,*) "                          |Number of atoms          |", nat,"          |"
-    write(*,*) "                          |Number of electrons      |", nel,"          |"
-    write(*,*) "                          |Number of basis functions|", nbf,"          |"
-    write(*,*) "                          ==================================================="
+    write(*,*) "                          ╔═════════════════════════════════════════════════╗"
+    write(*,*) "                          ║               System parameters                 ║"
+    write(*,*) "                          ╟──────────────────────────┬──────────────────────╢ "
+    write(*,*) "                          │ Number of atoms          │ ", nat,"        │ "
+    write(*,*) "                          │ Number of electrons      │ ", nel,"        │ "
+    write(*,*) "                          │ Number of basis functions│ ", nbf,"        │ "
+    write(*,*) "                          ╘══════════════════════════╧══════════════════════╛"
     write(*,*)
     write(*,*)
-    write(io2,*) "                          ==================================================="
-    write(io2,*) "                          ||               System parameters               ||"
-    write(io2,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-    write(io2,*) "                          |Number of atoms          |", nat,"          |"
-    write(io2,*) "                          |Number of electrons      |", nel,"          |"
-    write(io2,*) "                          |Number of basis functions|", nbf,"          |"
-    write(io2,*) "                          ==================================================="
+    write(io2,*) "                          ╔═════════════════════════════════════════════════╗"
+    write(io2,*) "                          ║               System parameters                 ║"
+    write(io2,*) "                          ╟──────────────────────────┬──────────────────────╢ "
+    write(io2,*) "                          │ Number of atoms          │ ", nat,"        │ "
+    write(io2,*) "                          │ Number of electrons      │ ", nel,"        │ "
+    write(io2,*) "                          │ Number of basis functions│ ", nbf,"        │ "
+    write(io2,*) "                          ╘══════════════════════════╧══════════════════════╛"
     write(io2,*)
     write(io2,*)
     Write(io2,*)
-    call write_matrix(xyz, "       ===== Atom positions/[Bohr] =====", io2)
-    write(io2,*)"        ================================="
+    call write_matrix(xyz, "       ═════ Atom positions/[Bohr] ═════", io2)
+    write(io2,*)"         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ "
     write(io2,*)
     write(io2,*)
-    call write_vector(chrg,  "       == Charge/[q] ==", io2)
-    write(io2,*)"        ================"
+    call write_vector(chrg,  "        ══ Charge/[q] ══", io2)
+    write(io2,*)"         ━━━━━━━━━━━━━━━"
     write(io2,*)
     write(io2,*)
-    call write_vector(basis,"        == Basis fct. ==", io2)
-    write(io2,*)"        ================"
+    call write_vector(basis,"        ══ Basis fct. ══", io2)
+    write(io2,*)"         ━━━━━━━━━━━━━━━"
     write(io2,*)
     write(io2,*)
-    call write_vector(zeta,"       ==== ζ exp. ====",io2)
-    write(io2,*)"        ================"
+    call write_vector(zeta,"        ════ ζ exp. ════",io2)
+    write(io2,*)"        ━━━━━━━━━━━━━━━"
 
 
 end subroutine input_reader
@@ -498,13 +561,13 @@ subroutine NucRep(nat,xyz,chrg,Erep,io2, ausgabe_erfolgt)     !EXERCISE 3
   Erep=0
   if(ausgabe_erfolgt==0) then
     !>Printing some info text /stdout+file
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*)"                                 Calculating nuclear repulsion energy"
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*)
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)"                                 Calculating nuclear repulsion energy"
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)
   end if
 
@@ -536,16 +599,16 @@ subroutine NucRep(nat,xyz,chrg,Erep,io2, ausgabe_erfolgt)     !EXERCISE 3
 
 if(ausgabe_erfolgt==0) then
   !>Printing subroutine results /stdout+file
-  write(*,*) "                         ==================================================="
-  write(*,*) "                         ||            Nuclear repulsion energy           ||"
-  write(*,*) "                         |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-  write(*,*) "                         |", Erep, "H                     |"
-  write(*,*) "                         ==================================================="
-  write(io2,*) "                          ==================================================="
-  write(io2,*) "                          ||            Nuclear repulsion energy           ||"
-  write(io2,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-  write(io2,*) "                          |", Erep, "H                     |"
-  write(io2,*) "                          ==================================================="
+  write(*,*) "                         ╔═════════════════════════════════════════════════╗"
+  write(*,*) "                         ║             Nuclear repulsion energy            ║"
+  write(*,*) "                         ╟─────────────────────────────────────────────────╢"
+  write(*,*) "                         ║", Erep, "H                     ║"
+  write(*,*) "                         ╚═════════════════════════════════════════════════╝"
+  write(io2,*) "                         ╔═════════════════════════════════════════════════╗"
+  write(io2,*) "                         ║             Nuclear repulsion energy            ║"
+  write(io2,*) "                         ╟─────────────────────────────────────────────────╢"
+  write(io2,*) "                         ║", Erep, "H                     ║"
+  write(io2,*) "                         ╚═════════════════════════════════════════════════╝"
 else
 end if
 
@@ -580,15 +643,15 @@ exponents=0
   if(ausgabe_erfolgt==0) then
   !>Print the results of Slater expansion
   write(*,*)
-  write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+  write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   write(*,*)"                                            Slater Expansion                                           "
-  write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+  write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   write(*,*)
   Write(*,*) nbf, "Slater functions transformed into ", ng*nbf ,"Gaussian functions"
   write(io2,*)
-  write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+  write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   write(io2,*)"                                            Slater Expansion                                           "
-  write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+  write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   write(io2,*)
   Write(io2,*) nbf, "Slater functions transformed into ", ng*nbf ,"Gaussian functions"
   write(io2,*)
@@ -602,11 +665,11 @@ end subroutine expansion
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    RESTRICTED FOCK >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- subroutine restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt)
+ subroutine restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, zeta, aufpunkt,pab)
 
 
    integer :: nbf, nel,nat, io2, ng, io3, i, ausgabe_erfolgt
-   real(wp) :: delta, Erep, escf, newescf, evenergy
+   real(wp) :: delta, Erep, escf, newescf, evenergy, zeta(:)
    real :: finishtei, starttei,finishscf, startscf
    real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:)
    real(wp), allocatable:: packsab(:), packtab(:), packvab(:), sab(:,:), tab(:,:), vab(:,:), xab(:,:),hab(:,:), Fock(:,:), Fock_new(:,:)
@@ -614,7 +677,7 @@ end subroutine expansion
    real(wp),allocatable :: eigvec(:,:), basis(:)
 
    allocate(packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2),xab(nbf,nbf), eigval(nbf), eigvec(nbf,nbf), Fock(nbf,nbf),Fock_new(nbf,nbf))
-   allocate(hab(nbf,nbf), sab(nbf,nbf), tab(nbf,nbf), vab(nbf,nbf), cab(nbf,nbf), pab(nbf,nbf), gabcd(nbf,nbf))
+   allocate(hab(nbf,nbf), sab(nbf,nbf), tab(nbf,nbf), vab(nbf,nbf), cab(nbf,nbf), gabcd(nbf,nbf))
    allocate(twointeg(((nbf*(nbf-1)/2+nbf)*(nbf*(nbf-1)/2+nbf)/2+(nbf*(nbf-1)/2+nbf)-1)))
 
     !>Calculation of one electron integrals
@@ -623,12 +686,12 @@ end subroutine expansion
 
     if(ausgabe_erfolgt==0) then
     !> Text for result File
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)"                                           Packing Matrices                                           "
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)
     write(io2,*)"<<<<<<<<<<<<<<<<<     Packing order: (I) S matrix, (II) T Matrix, (III) V Matrix    >>>>>>>>>>>>>>>>>>>"
-    write(io2,*)"======================================================================================================="
+    write(io2,*)"════════════════════════════════════════════════════════════════════════════════════════════════════════"
   end if
 
     !>Packin one electron matrices
@@ -644,14 +707,15 @@ end subroutine expansion
     if(ausgabe_erfolgt==0) then
     !>Initial Guess Annoucing (stdout+file)
     write(*,*)
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*)"                                             Initial guess                                       "
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*)
     write(io2,*)
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-    write(io2,*)"                                             Initial guess                                      "
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    write(io2,*)"                                             Initial guess                                       "
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    write(io2,*)
   end if
 
     !>Setting initial Fock Matrix as a core Hamiltonian
@@ -661,8 +725,8 @@ end subroutine expansion
     write(*,*)
     write(*,*)"                                         ✓ Fock matrix obtained        "
     write(io2,*)
-    call write_matrix(Fock,"      ============================       Fock Matrix      ============================",io2)
-    write(io2,*)"      =================================================================================="
+    call write_matrix(Fock,"      ╔══════════════════════════        Fock Matrix        ══════════════════════════╗",io2)
+    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     end if
 
     !>calculating coefficients from the initial Fock matrix
@@ -676,13 +740,13 @@ end subroutine expansion
     !Calculating new density matrix
     call new_density(nel, nbf,cab,pab,io2,ausgabe_erfolgt)
     write(*,*)
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-    write(*,*)"                 <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"                <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+    write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-    write(io2,*)"               <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"              <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     end if
 
@@ -695,13 +759,13 @@ end subroutine expansion
     if(ausgabe_erfolgt==0) then
     !Printing the initial Fock energy
     write(*,*)
-    write(*,*) "                           *************************************************"
-    write(*,*) "                           *  ", "initial E_{HF}=", escf, "H  *"
-    write(*,*) "                           *************************************************"
-    write(*,*)
+    write(*,*) "                           ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+    write(*,*) "                           ┃  ", "initial E_{HF}=", escf, "H  ┃"
+    write(*,*) "                           ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
     write(io2,*)
-    write(io2,*) "                           *************************************************"
-    write(io2,*) "                               ", "initial E_{HF}=", escf, "H"
+    write(io2,*) "                           ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+    write(io2,*) "                           ┃  ", "initial E_{HF}=", escf, "H  ┃"
+    write(io2,*) "                           ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
 
     end if
 
@@ -710,11 +774,14 @@ end subroutine expansion
 
     if(ausgabe_erfolgt==0) then
     !Printing results and initial HF energy /stdout+file
-    call write_matrix(gabcd,"           ===========================      G Tensor       ===========================     ",io2)
-    write(io2,*)"      =================================================================================="
+
+
+    call write_matrix(gabcd,"           ╔══════════════════════════      G Tensor       ══════════════════════════╗     ",io2)
+    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io2,*)
-    call write_matrix(Fock_new,"           ==========================       Fock Matrix      ==========================     ",io2)
-    write(io2,*)"      =================================================================================="
+
+    call write_matrix(Fock_new,"           ╔═════════════════════════       Fock Matrix      ═════════════════════════╗     ",io2)
+    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io2,*)
     end if
 
@@ -724,15 +791,15 @@ end subroutine expansion
     if(ausgabe_erfolgt==0) then
     !>Starting SCF Procedure
     write(*,*)
-    write(*,*)"    ==============================================================================================="
-    write(*,*)"    ||                                        SCF ITERATIONS                                     ||"
-    write(*,*)"    ==============================================================================================="
+    write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+    write(*,*)"    ║                                         SCF ITERATIONS                                      ║ "
+    write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
     write(*,*)
     write(io2,*)
     write(io2,*)
-    write(io2,*)"    ==============================================================================================="
-    write(io2,*)"    ||                                       SCF ITERATIONS                                      ||"
-    write(io2,*)"    ==============================================================================================="
+    write(io2,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+    write(io2,*)"    ║                                         SCF ITERATIONS                                      ║ "
+    write(io2,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
     write(io2,*)
     end if
 
@@ -767,64 +834,66 @@ end subroutine expansion
     !Printing information about end of SCF Procedure
     if (i<50) then
       if(ausgabe_Erfolgt==0) then
-
-        write(*,*)"    ==============================================================================================="
-        write(*,*)"    ||                                      SCF SUCCSESFULL                                      ||"
-        write(*,*)"    ==============================================================================================="
-        write(*,*)
-        write(*,*)
-        write(*,*)
-        write(*,*) "                          ==================================================="
-        write(*,*) "                          ||                 Energy Values                 ||"
-        write(*,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-        write(*,*) "                          |Nuc. rep.=", Erep, "H           |"
-        write(*,*) "                          |E HF     =", Escf, "H           |"
-        write(*,*) "                          |.................................................|"
-        write(*,*) "                          |E Tot.   =", Erep+escf, "H           |"
-        write(*,*) "                          |         =", (Erep+escf)*27.2114, "eV          |"
-        write(*,1)"                           |         =  ", evenergy,"     kcal        |"
         1 format (a,e20.14,a)
-        write(*,*) "                          ==================================================="
-        write(io2,*)"    ==============================================================================================="
-        write(io2,*)"    ||                                      SCF SUCCSESFULL                                      ||"
-        write(io2,*)"    ==============================================================================================="
+        write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+        write(*,*)"    ║                                        SCF SUCCSESFULL                                      ║ "
+        write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
+        write(*,*)
+        write(*,*)
+        write(*,*)
+        write(*,*) "                          ╔═════════════════════════════════════════════════╗"
+        write(*,*) "                          ║                 Energy Values                   ║"
+        write(*,*) "                          ╠═════════════════════════════════════════════════╣"
+        write(*,*) "                          ┃Nuc. rep.=", Erep, "H           ┃"
+        write(*,*) "                          ┃E HF     =", Escf, "H           ┃"
+        write(*,*) "                          ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩"
+        write(*,*) "                          │E Tot.   =", Erep+escf, "H           │"
+        write(*,*) "                          │         =", (Erep+escf)*2.72114, "eV          │"
+        write(*,1) "                           │         =  ", evenergy,"     kcal        │"
+        write(*,*) "                          └─────────────────────────────────────────────────┘"
+        write(io2,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+        write(io2,*)"    ║                                        SCF SUCCSESFULL                                      ║ "
+        write(io2,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
         write(io2,*)
         write(io2,*)
         write(io2,*)
-        write(io2,*) "                          ==================================================="
-        write(io2,*) "                          ||                 Energy Values                 ||"
-        write(io2,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-        write(io2,*) "                          |Nuc. rep.=", Erep, "H           |"
-        write(io2,*) "                          |E HF     =", Escf, "H           |"
-        write(io2,*) "                          |.................................................|"
-        write(io2,*) "                          |E Tot.   =", Erep+escf, "H           |"
-        write(io2,*) "                          |         =", (Erep+escf)*27.2114, "eV          |"
-        write(io2,1)"                           |         =  ", evenergy,"     kcal        |"
-        write(io2,*) "                          ==================================================="
-        write(io3,*)"    ==============================================================================================="
-        write(io3,*)"    ||                                      SCF SUCCSESFULL                                      ||"
-        write(io3,*)"    ==============================================================================================="
+        write(io2,*) "                          ╔═════════════════════════════════════════════════╗"
+        write(io2,*) "                          ║                 Energy Values                   ║"
+        write(io2,*) "                          ╠═════════════════════════════════════════════════╣"
+        write(io2,*) "                          ┃Nuc. rep.=", Erep, "H           ┃"
+        write(io2,*) "                          ┃E HF     =", Escf, "H           ┃"
+        write(io2,*) "                          ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩"
+        write(io2,*) "                          │E Tot.   =", Erep+escf, "H           │"
+        write(io2,*) "                          │         =", (Erep+escf)*2.72114, "eV          │"
+        write(io2,1) "                           │         =  ", evenergy,"     kcal        │"
+        write(io2,*) "                          └─────────────────────────────────────────────────┘"
+        write(io3,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+        write(io3,*)"    ║                                        SCF SUCCSESFULL                                      ║ "
+        write(io3,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
         write(io3,*)
       end if
     else
       if(ausgabe_erfolgt==0) then
-        write(*,*)"    ==============================================================================================="
-        write(*,*)"    ||                                        SCF FAILED                                         ||"
-        write(*,*)"    ==============================================================================================="
+        write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+        write(*,*)"    ║                                         SCF FAILED                                          ║ "
+        write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
+
       end if
     end if
 
     if(ausgabe_erfolgt==0) then
       call cpu_time(finishscf)
-      write(io3,*) "======================================================================================================="
+
+      write(io3,*) "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       write(io3,*) "SCF iterations time:", finishscf-startscf, "s"
     end if
-    escf=escf+erep
-    write(*,*)"final SCF energy",escf
-    call mulliken(nat, nel, nbf,pab,sab, chrg, basis)
+  !  escf=escf
+
+    !call mulliken(nat, nel, nbf,pab,sab, chrg, basis)
+
 
   deallocate(packsab,packtab,packvab,xab,eigval,eigvec,Fock,Fock_new)
-  deallocate(hab,sab,tab,vab,cab,pab,gabcd, twointeg)
+  deallocate(hab,sab,tab,vab,cab,gabcd, twointeg)
 
   end subroutine restrictedHF
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END RESTRICTED FOCK @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -841,7 +910,7 @@ subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,i
   integer :: i, j,io2,k
 
 !Allocate needed memory
-  allocate(aufpunkt(3,nbf))
+
   k=0
   j=1
 
@@ -865,13 +934,13 @@ subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,i
   if(ausgabe_erfolgt==0) then
     !Print some procedure title /Stdout+file
     write(*,*)
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*)"                                 Calculation of one electron integrals                                 "
-    write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*)"                                 Calculation of one electron integrals                                 "
-    write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   end if
 
   !Loop over all electron pairs
@@ -891,17 +960,17 @@ subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,i
     write(*,*)"                     –––––––   Done, all matrices saved in results.txt   –––––––"
     write(*,*)
     write(io2,*)
-    write (io2,*) "======================================================================================================="
-    call write_matrix(sab, "  Overlap Matrix S   ",io2)
-    write (io2,*) "======================================================================================================="
+    write(io2,*)"╔═════════════════════════════════════════════════════════════════════════════════════════════════════╗"
+    call write_matrix(sab, "                                            Overlap Matrix S   ",io2)
+    write(io2,*)"╚═════════════════════════════════════════════════════════════════════════════════════════════════════╝"
     write(io2,*)
-    write (io2,*) "======================================================================================================="
-    call write_matrix(tab, "Kinetic Matrix T", io2)
-    write (io2,*) "======================================================================================================="
+    write(io2,*)"╔═════════════════════════════════════════════════════════════════════════════════════════════════════╗"
+    call write_matrix(tab, "                                            Kinetic Matrix T", io2)
+    write(io2,*)"╚═════════════════════════════════════════════════════════════════════════════════════════════════════╝ "
     write(io2,*)
-    write (io2,*) "======================================================================================================="
-    call write_matrix(vab, "Nuclear Attraction Matrix V", io2)
-    write (io2,*) "======================================================================================================="
+    write(io2,*)"╔═════════════════════════════════════════════════════════════════════════════════════════════════════╗"
+    call write_matrix(vab, "                                     Nuclear Attraction Matrix V", io2)
+    write(io2,*)"╚═════════════════════════════════════════════════════════════════════════════════════════════════════╝ "
   end if
 end subroutine oneelint
 
@@ -969,13 +1038,13 @@ end subroutine oneelint
 
     if(ausgabe_erfolgt==0) then
       !Print some procedure title /Stdout+file
-      write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+      write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       write(*,*)"                                Calculation of symmetric orthonormalizer                               "
-      write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+      write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       write(io2,*)
-      write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+      write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       write(io2,*)"                                Calculation of symmetric orthonormalizer                               "
-      write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+      write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     end if
 
     ! Taking care of no overwriting of the matrix
@@ -1006,11 +1075,13 @@ end subroutine oneelint
 
     if(ausgabe_erfolgt==0) then
       !Print some success text
-      write(*,*)
+       write(*,*)
        write(*,*)"                         –––––––   Symmetric orthonormalizer obtained   –––––––"
        write(io2,*)
-       call write_matrix(xab,"      ====================    Symmetric orthonormalizer obtained    ====================",io2)
-       write(io2,*)"      =================================================================================="
+       call write_matrix(xab,"      ╔═══════════════════    Symmetric orthonormalizer obtained    ━━━━━━━━━━━━━━━━━━━━",io2)
+       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+
+
     end if
 
   !>Check of orthonormalizer
@@ -1042,8 +1113,8 @@ end subroutine oneelint
   if(ausgabe_erfolgt==0) then
     !Print the F' matrix into result File
     write(io2,*)
-    call write_matrix(Fockprim,"           ====================      F'ock matrix obtained     ====================     ",io2)
-    write(io2,*)"      =================================================================================="
+    call write_matrix(Fockprim,"       ╔══════════════════════════        F'ock Matrix        ══════════════════════════╗    ",io2)
+    write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
   end if
 
     !Packing F' into vector
@@ -1062,8 +1133,11 @@ end subroutine oneelint
       write(*,*)"                                    ✓ Orbital coefficients obtained    "
       write(io2,*)
       write(io2,*)
-      call write_matrix(cab,"         ========================    Orbital coefficients    =========================",io2)
-      write(io2,*)"      =================================================================================="
+
+      call write_matrix(cab,"         ╔═══════════════════════   Orbital coefficients    ════════════════════════╗",io2)
+      write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
+
+
     end if
 
 
@@ -1109,8 +1183,8 @@ end subroutine oneelint
       write(*,*)
       write(io2,*)
       write(io2,*)
-      call write_matrix(pab,"            ========================    Density Matrix    =========================",io2)
-      write(io2,*)"      =================================================================================="
+      call write_matrix(pab,"            ╔═══════════════════════    Density Matrix    ════════════════════════╗",io2)
+      write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     end if
 
     deallocate(nocc)
@@ -1143,24 +1217,17 @@ end subroutine oneelint
 
     !>Calculate the E_{HF} as a half of the matrix trace
     do i=1,nbf
-
       do j=1,nbf
-
         if(i==j) then
-
           escf=escf+0.5_wp*(Energy(i,i))
-
         end if
-
       end do
-
     end do
 
     !>Free array space
     deallocate(Energy)
 
   end subroutine HFenergy
-
 
   !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END HF ENERGY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -1183,67 +1250,53 @@ end subroutine oneelint
     !Run over all different integrals
     do i=1, nbf
        do j=1, i
-
          !> First indexing
           if(i>j)then
             ij=i*(i-1)/2+j
           else
             ij=j*(j-1)/2+i
           endif
-
            do k=1, i
-
              if (i==k) then
                final=j
              else
                final=k
              end if
-
                 do l=1, final
-
                   !> Second indexing
                   if(k>l) then
                     kl=k*(k-1)/2+l
                   else
                     kl=l*(l-1)/2+k
                   endif
-
                   !> FinaL index
                   if (ij>kl) then
                     ijkl=ij*(ij-1)/2+kl
                   else
                     ijkl=kl*(kl-1)/2+ij
                   end if
-
                   !Calculating two electron integrals
                   call twoint(aufpunkt(1:3,i), aufpunkt(1:3,j), aufpunkt(1:3,k), aufpunkt(1:3,l), exponents(ng*(i-1)+1:ng*i), exponents(ng*(j-1)+1:ng*j), exponents(ng*(k-1)+1:ng*k), exponents(ng*(l-1)+1:ng*l), coefficients(ng*(i-1)+1:ng*i),coefficients(ng*(j-1)+1:ng*j), coefficients(ng*(k-1)+1:ng*k), coefficients(ng*(l-1)+1:ng*l), twointeg(ijkl))
-
-
               end do
-
             end do
-
          end do
-
       end do
 
 
       call cpu_time(finishtei)
 
   end subroutine twoIntegrals
-      !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END TWO ELECTRON INTEGRALS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-      !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-      !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  NEW FOCK MATRIX >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END TWO ELECTRON INTEGRALS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  NEW FOCK MATRIX >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  subroutine newFock(nbf,pab,hab,Fock_new,twointeg,gabcd,io2) !Exercise12.1
 
-      subroutine newFock(nbf,pab,hab,Fock_new,twointeg,gabcd,io2) !Exercise12.1
+    !Declaration of variables
+    integer:: i,j,k,l, ij, kl, ijkl, il, kj, ilkj, nbf,io2
+    real(wp):: pab(:,:), hab(:,:), Fock_new(:,:),twointeg(:), gabcd(:,:)
 
-
-        !Declaration of variables
-        integer:: i,j,k,l, ij, kl, ijkl, il, kj, ilkj, nbf,io2
-        real(wp):: pab(:,:), hab(:,:), Fock_new(:,:),twointeg(:), gabcd(:,:)
-
-        !Setiing new Fovck equal 0
-        Fock_new=0
+    !Setiing new Fovck equal 0
+            Fock_new=0
 
         !>Run over all basis functions
         do i=1, nbf
@@ -1293,11 +1346,8 @@ end subroutine oneelint
                 ilkj=kj*(kj-1)/2+il
               end if
 
-
               !Calculating the G Tensor
              Fock_new(i,j)=Fock_new(i,j)+pab(l,k)*(twointeg(ijkl)-0.5*twointeg(ilkj))
-
-
            end do
 
          end do
@@ -1328,17 +1378,17 @@ subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xy
 
   if (ausgabe_erfolgt==0) then
     !Printing iteration counter
-    write(*,*)"               –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"               ─────────────────────────────────────────────────────────────────────────"
     write(*,*)"                                         ITERATION", i
-    write(*,*)"               –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(*,*)"               ─────────────────────────────────────────────────────────────────────────"
     write(*,*)
-    write(io2,*)"               –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"               ─────────────────────────────────────────────────────────────────────────"
     write(io2,*)"                                         ITERATION", i
-    write(io2,*)"               –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io2,*)"               ─────────────────────────────────────────────────────────────────────────"
     write(io2,*)
-    write(io3,*)"               –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io3,*)"               ─────────────────────────────────────────────────────────────────────────"
     write(io3,*)"                                         ITERATION", i
-    write(io3,*)"               –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+    write(io3,*)"               ─────────────────────────────────────────────────────────────────────────"
     write(io3,*)
   end if
 
@@ -1363,14 +1413,14 @@ subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xy
     !Printing some results /std+file
     write(*,*)"                                          ✓ G tensor obtained       "
     write(io2,*)"                                      ✓ New G tensor obtained       "
-    call write_matrix(gabcd,"                =========================      G Tensor      ==========================",io3)
-    write(io3,*)"      =================================================================================="
+    call write_matrix(gabcd,"                ╔════════════════════════      G Tensor      ════════════════════════╗",io3)
+    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io3,*)
     write(*,*)
     write(*,*)"                                      ✓ New Fock Matrix obtained       "
     write(io2,*)"                                      ✓ New Fock Matrix obtained       "
-    call write_matrix(Fock_new,"               ========================      Fock Matrix      =========================",io3)
-    write(io3,*)"      =================================================================================="
+    call write_matrix(Fock_new,"               ╔═════════════════════════      Fock Matrix      ════════════════════════╗",io3)
+    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io3,*)
   end if
 
@@ -1381,17 +1431,17 @@ subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xy
   if(ausgabe_erfolgt==0) then
     !Printing new HF energy
     write(*,*)
-    write(*,*) "                           *************************************************"
+    write(*,*) "                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*) "                                   ", "E_{HF}=", newescf, "H                     "
     write(*,*)
     write(*,*)
     write(io2,*)
-    write(io2,*) "                           *************************************************"
+    write(io2,*) "                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*) "                                   ", "E_{HF}=", newescf, "H                     "
     write(io2,*)
     write(io2,*)
     write(io3,*)
-    write(io3,*) "                           *************************************************"
+    write(io3,*) "                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io3,*) "                                   ", "E_{HF}=", newescf, "H                     "
     write(io3,*)
     write(io3,*)
@@ -1417,39 +1467,39 @@ end subroutine iterations
     mlkn=matmul(pab,sab)
 
 
-
+    !>Calculating trace the PS matrix
     do i=1, nbf
       do j=1,nbf
         if(i==j) then
           diag(i)=mlkn(i,j)
         end if
-   end do
+      end do
+    end do
 
- end do
+    !>Taking care about counters
+    j=0
+    begin=1
+    finish=0
 
+    !>Setting partial charges equal atom charges
+    Mlkn_charge=chrg
 
-  begin=1
-  finish=0
-  Mlkn_charge=chrg
-
- J=0
   !Mulliken Population Calculation
     do i=1,nat
 
+      !Mapping
        begin=finish+1
-
        finish=finish+(basis(i))
 
-
        j=begin
-       do while(j<=finish)
 
+       !Reducing atom charges by the PS trace values
+       do while(j<=finish)
          Mlkn_charge(i)=Mlkn_charge(i)-diag(j)
 
-
+         !increasing counter
          j=j+1
        end do
-
      end do
 
 call write_vector(Mlkn_charge)
@@ -1458,388 +1508,415 @@ end subroutine mulliken
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END MULLIKEN CHARGES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START CHARGE DENSITY >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+    subroutine charge_density(zeta, pab, cab, nbf, aufpunkt,density_point,io2)
+
+      !>declaration  of local variables
+      real(wp) :: KAB, zeta(:), pab(:,:), cab(:,:),rho, aufpunkt(:,:), distance, density_point(:), p(3)
+      integer:: i,j,nbf,io2
+
+      rho=0
+      do i=1, nbf
+        do j=1, nbf
+
+          if(i==j) then
+
+          distance=sqrt(sum((aufpunkt(1:3,i)-aufpunkt(1:3,j))**2))
+          p=(zeta(i)*aufpunkt(1:3,i)+zeta(j)*aufpunkt(1:3,j))/(zeta(i)+zeta(j))
+         rho=rho+pab(i,j)*exp((-1*(zeta(i)+zeta(j)))*sqrt(sum((density_point-p)**2)))
+       end if
+
+        end do
+      end do
+
+        write(*,*)
+        write(*,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        write(*,*)"      Point coordinates:        x                         y                         z"
+        write(*,*)"                     ",density_point
+        write(*,*)"                        ──────────────────────────────────────────────────────────────────────"
+        write(*,*)"                                            Rho",rho
+        write(*,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        write(io2,*)
+        write(io2,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        write(io2,*)"      Point coordinates:        x                         y                         z"
+        write(io2,*)"                     ",density_point
+        write(io2,*)"                        ──────────────────────────────────────────────────────────────────────"
+        write(io2,*)"                                            Rho",rho
+        write(io2,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    end subroutine charge_density
+!–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START GEOMETRY OPTIMIZATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-   subroutine opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf,ausgabe_erfolgt,io2)
-     !>Exercise 15 && 16
+  subroutine opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf,ausgabe_erfolgt,io2,zeta, aufpunkt, pab, io4)
+      !>Exercise 15 && 16
 
-     !>Declaration of local variables
-     integer :: nbf, nel,nat, io2, ng, ausgabe_erfolgt, i
-     real(wp):: Erep, plus, erepminus, der,escf, plusescf, minusescf, eplus, eminus, energy, opt_start, opt_end
-     real :: finishtei, starttei,finishscf, startscf, delta
-     real (wp):: xyz(:,:),  coefficients(:), exponents(:)
-     real(wp), allocatable:: basis(:),xyzplus(:,:), xyzminus(:,:), geo_gradient(:,:),chrg(:)
+      !>Declaration of local variables
+      integer :: nbf, nel,nat, io2, ng, ausgabe_erfolgt, i, io4,m, j
+      real(wp):: Erep, plus, erepminus, der,escf, plusescf, minusescf, eplus, eminus, energy, opt_start, opt_end
+      real :: finishtei, starttei,finishscf, startscf, delta
+      real (wp):: xyz(:,:),  coefficients(:), exponents(:)
+      real(wp), allocatable:: basis(:),xyzplus(:,:), xyzminus(:,:), geo_gradient(:,:),chrg(:), pab(:,:), aufpunkt(:,:), zeta(:)
 
-     !>allocate needed memory
-     allocate(xyzplus(3,nat), xyzminus(3,nat), geo_gradient(3,nat))
+      !>allocate needed memory
+      allocate(xyzplus(3,nat), xyzminus(3,nat), geo_gradient(3,nat))
 
-     call cpu_time(opt_start)
+      call cpu_time(opt_start)
 
-     !> Some stdout+file outpt here
-     write (*,*)
-     write (*,*) "#######################################################################################################"
-     write(*,*)
-     write(*,*)"    ==============================================================================================="
-     write(*,*)"    ||                                    OPTIMIZATION RUN                                       ||"
-     write(*,*)"    ==============================================================================================="
-     write(*,*)
-     write (io2,*)
-     write (io2,*) "#######################################################################################################"
-     write(io2,*)
-     write(io2,*)"    ==============================================================================================="
-     write(io2,*)"    ||                                   OPTIMIZATION RUN                                        ||"
-     write(io2,*)"    ==============================================================================================="
-     write(io2,*)
-     write(*,*)"           ========================     GRADIENT PREPARATION        ========================="
-     write(io2,*)"           ========================     GRADIENT PREPARATION        ========================="
-     write(io2,*)
+      !> Some stdout+file outpt here
+      m=1
+i=1
+j=1
 
-     !>chose of proper gradient vector
-     !Loop over all atoms
-      do i=1, nat
-        !Set geometry change as 0.1 of the start positions
-        geo_gradient(1:3,i)=0.1*xyz(1:3,i)
-     end do
+      energy=erep+escf
+delta=1
+      !>Starting the steepest descent procedure
+         do while(delta>0.0000001.and.m<100)
 
-     !>Moving back and forth
-     xyzplus=xyz+geo_gradient
-     xyzminus=xyz-geo_gradient
+      !>chose of proper gradient vector
+      !Loop over all atoms
+       do i=1, nat
+         !Set geometry change as 0.1 of the start positions
+         geo_gradient(1:3,i)=0.035*xyz(1:3,i)
+      end do
+
+      !>Moving back and forth
+      xyzplus=xyz+geo_gradient
+      xyzminus=xyz-geo_gradient
 
 
-     !>Reducing screen input
-    ausgabe_erfolgt=1
+      !>Reducing screen input
+     ausgabe_erfolgt=1
 
-    !>Calculating new values of repulsion and HF Energy in further step
-     call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-     call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt)
+     !>Calculating new values of repulsion and HF Energy in further step
+      call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
+      call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt,zeta, aufpunkt, pab)
 
-    !>Calculating new values of repulsion and HF Energy in backward step
-    call NucRep(nat,xyzminus,chrg,Erepminus,io2,ausgabe_erfolgt)
-     call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt)
+     !>Calculating new values of repulsion and HF Energy in backward step
+     call NucRep(nat,xyzminus,chrg,Erepminus,io2,ausgabe_erfolgt)
+      call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab)
 
-     !> Calculating al total energies
-     energy=erep+escf
-     eplus=plus+plusescf
-     eminus=erepminus+minusescf
+      !> Calculating al total energies
 
-       i=1
-       !Chosing the optimal start gradient
-       do while(energy<eplus.and.energy<eminus)
-
-         !>Printing the actual step stdout+file
-         write(*,*)
-         write(*,*)"           -----------------------   PREPARATION RUN",i,"   -----------------------"
-         write(io2,*)"           -----------------------   PREPARATION RUN",i,"   -----------------------"
-         write(io2,*)
-
-         !> Restart of energies
-         plus=0
-         erepminus=0
-         plusescf=0
-         minusescf=0
-
-         !Setting new gradient value
-         geo_gradient=0.5*geo_gradient
-
-         !>moving back and forth
-         xyzplus=xyz+geo_gradient
-         xyzminus=xyz-geo_gradient
-
-          !>Calculating new values of repulsion and HF Energy in further step
-         call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-         call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt)
-
-        !>Calculating new values of repulsion and HF Energy in further step
-         call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
-         call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt)
-
-         !>Counter increase
-         i=i+1
-
-         !> Calculating total energies
-         eplus=plus+plusescf
-         eminus=erepminus+minusescf
-
-       end do
-
-       !> success information
-       write(*,*)
-       write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-       write(*,*)"            <<<<<<<<<<<<<<      Gradient preparation ended succesfully      >>>>>>>>>>>>>>"
-       write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-       write(*,*)
-       call write_matrix(geo_gradient,"               ========================    Gradient    =========================")
-       write(*,*)"      =================================================================================="
-       write(io2,*)
-       write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-       write(io2,*)"            <<<<<<<<<<<<<<      Gradient preparation ended succesfully      >>>>>>>>>>>>>>"
-       write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-       write(io2,*)
-       call write_matrix(geo_gradient,"               ========================    Gradient    =========================",io2)
-       write(io2,*)"      =================================================================================="
-
-       der=(plusescf+plus-minusescf-erepminus)/2*sum(sqrt(geo_gradient**2))
-
-       !>Taking care the loop will run at least one time
-       delta=1
-
-       !>Counter reset
-       i=1
-       !>Starting the steepest descent procedure
-          do while(delta>0.0001.and.i<100)
-
-            !Setting new values for further and backward step
-            xyzminus=xyz-(0.5**i)*geo_gradient
-            xyzplus=xyz+(0.5**i)*geo_gradient
-
-            !CAlculating new energies values
-            call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-            call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt)
-            call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
-            call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt)
-            eminus=minusescf+erepminus
-            eplus=plus+plusescf
-            der=(eplus-eminus)/2*sum(sqrt(geo_gradient**2))
+      eplus=plus+plusescf
+      eminus=erepminus+minusescf
 
 
-            !>Control movement on the PES
-              if(ENERGY>eminus)then
+        !Chosing the optimal start gradient
+        do while(energy<eplus.and.energy<eminus)
 
-                !Calculating convergence criterion
-                delta=energy-eminus
-                write(*,*)
-                write(*,*)"                                          Optimization run", i
-                write(*,*) "                           *************************************************"
-                write(*,*) "                                   ", "E_{HF}=", Eminus, "H                     "
-                write(*,*) "                                       ", "∆=", delta, "H                     "
-                write(*,*)
-                write(io2,*)
-                write(io2,*)"                                          Optimization run", i
-                write(io2,*) "                           *************************************************"
-                write(io2,*) "                                   ", "E_{HF}=", Eminus, "H                     "
-                write(io2,*) "                                       ", "∆=", delta, "H                     "
-                write(io2,*)
+          !>Printing the actual step stdout+file
 
-                !Setting new Values
-                Energy=eminus
-                xyz=xyzminus
-                i=i+1
-              elseif (Energy>eplus) then
+          write(io4,*)"           -----------------------   PREPARATION RUN",j,"   -----------------------"
+          write(io4,*)"           -----------------------   PREPARATION RUN",j,"   -----------------------"
+          write(io4,*)
 
-                !Calculating convergence criterion
-                delta=energy-eplus
-                write(*,*)
-                write(*,*)"                                          Optimization run", i
-                write(*,*) "                           *************************************************"
-                write(*,*) "                                   ", "E_{HF}=", Eplus, "H   plus             "
-                write(*,*) "                                       ", "∆=", delta, "H                     "
-                write(*,*)
-                write(io2,*)
-                write(io2,*)"                                          Optimization run", i
-                write(io2,*) "                           *************************************************"
-                write(io2,*) "                                   ", "E_{HF}=", Eplus, "H                   "
-                write(io2,*) "                                            ∆=", delta, "H                     "
-                write(io2,*)
+          !> Restart of energies
+          plus=0
+          erepminus=0
+          plusescf=0
+          minusescf=0
 
+          !Setting new gradient value
+          geo_gradient=0.6*geo_gradient
 
-                Energy=eplus
-                xyz=xyzplus
-                i=i+1
-              else
-                write(io2,*)
-                write(io2,*)"                                          Optimization run", i
-                write(io2,*) "                           *************************************************"
-                write(io2,*) "                                             run failed                     "
-                write(io2,*)
-                write(*,*)
-                write(*,*)"                                          Optimization run", i
-                write(*,*) "                           *************************************************"
-                write(*,*) "                                             run failed                     "
-                write(*,*)
-                delta=1
-                i=i+1
-          end if
+          !>moving back and forth
+          xyzplus=xyz+geo_gradient
+          xyzminus=xyz-geo_gradient
 
+           !>Calculating new values of repulsion and HF Energy in further step
+          call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
+          call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt,pab)
+
+         !>Calculating new values of repulsion and HF Energy in further step
+          call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
+          call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab)
+
+          !>Counter increase
+          j=j+1
+
+          !> Calculating total energies
+          eplus=plus+plusescf
+          eminus=erepminus+minusescf
 
         end do
 
-        call write_matrix(xyz,"            ========================  Final geometry    =========================")
-        write(*,*)"      =================================================================================="
 
-        call write_matrix(xyz,"            ========================  Final geometry    =========================",io2)
-        write(io2,*)"      =================================================================================="
-
-        call cpu_time(opt_end)
-
-        !>Output over geometry optimization run
-        write(*,*) "Geometry optimization done in:", opt_end-opt_start, "s"
-        write(*,*)
-        write(io2,*) "Geometry optimization done in:", opt_end-opt_start, "s"
-        write(io2,*)
+        der=(plusescf+plus-minusescf-erepminus)/2*sum(sqrt(geo_gradient**2))
 
 
-  end subroutine opt_geo
 
-  !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END GEOMETRY OPTIMIZATION @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+             !Setting new values for further and backward step
+             xyzminus=xyz-(0.6**i)*geo_gradient
+             xyzplus=xyz+(0.6**i)*geo_gradient
+
+             !CAlculating new energies values
+             call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
+             call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt, pab)
+             call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
+             call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt,pab)
+             eminus=minusescf+erepminus
+             eplus=plus+plusescf
+             der=(eplus-eminus)/2*sum(sqrt(geo_gradient**2))
+
+
+             !>Control movement on the PES
+               if(ENERGY>eminus)then
+
+                 !Calculating convergence criterion
+                 delta=energy-eminus
+                 write(*,*)
+                 write(*,*)
+                 write(*,*)
+                 write(*,*)"                         ╭───────────────────────────────────────────────╮"
+                 write(*,*)"                                      Optimization run", m
+                 write(*,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(*,*) "                                  ", "E_{HF}=", eminus, "H                     "
+                 write(*,*) "                                       ∆=", delta, "H                     "
+                 write(*,*)"                         ╰───────────────────────────────────────────────╯ "
+                 write(io2,*)
+                 write(io2,*)
+                 write(io2,*)"                    ╭───────────────────────────────────────────────╮"
+                 write(io2,*)"                                 Optimization run", m
+                 write(io2,*) "                    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io2,*) "                             ", "E_{HF}=",eminus, "H                     "
+                 write(io2,*) "                                  ∆=", delta, "H                     "
+                 write(io2,*)"                    ╰───────────────────────────────────────────────╯ "
+                 write(io2,*)
+                 write(io2,*)
+                 write(io4,*)
+                 write(io4,*)
+                 write(io4,*)"                    ╭───────────────────────────────────────────────╮  "
+                 write(io4,*)"                                 Optimization run", m
+                 write(io4,*) "                     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io4,*) "                             ", "E_{HF}=", eminus, "H                     "
+                 write(io4,*) "                                  ∆=", delta, "H                     "
+                 write(io4,*)"                    ╰───────────────────────────────────────────────╯ "
+
+                 m=m+1
+                 !Setting new Values
+                 Energy=eminus
+                 xyz=xyzminus
+                 i=i+1
+               elseif (Energy>eplus) then
+
+                 !Calculating convergence criterion
+                 delta=energy-eplus
+                 write(*,*)
+                 write(*,*)
+                 write(*,*)
+                 write(*,*)"                         ╭───────────────────────────────────────────────╮"
+                 write(*,*)"                                      Optimization run", m
+                 write(*,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(*,*) "                                  ", "E_{HF}=", eplus, "H                     "
+                 write(*,*) "                                       ∆=", delta, "H                     "
+                 write(*,*)"                         ╰───────────────────────────────────────────────╯ "
+                 write(io2,*)
+                 write(io2,*)
+                 write(io2,*)"                    ╭───────────────────────────────────────────────╮"
+                 write(io2,*)"                                 Optimization run", m
+                 write(io2,*) "                    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io2,*) "                             ", "E_{HF}=",plus, "H                     "
+                 write(io2,*) "                                  ∆=", eplus, "H                     "
+                 write(io2,*)"                    ╰───────────────────────────────────────────────╯ "
+                 write(io2,*)
+                 write(io2,*)
+                 write(io4,*)
+                 write(io4,*)
+                 write(io4,*)"                    ╭───────────────────────────────────────────────╮  "
+                 write(io4,*)"                                 Optimization run", m
+                 write(io4,*) "                     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io4,*) "                             ", "E_{HF}=", eminus, "H                     "
+                 write(io4,*) "                                  ∆=", delta, "H                     "
+                 write(io4,*)"                    ╰───────────────────────────────────────────────╯ "
+
+                 m=m+1
+
+                 Energy=eplus
+                 xyz=xyzplus
+                 i=i+1
+               else
+                 delta=1
+                 i=i+1
+           end if
+
+
+         end do
+
+         call write_matrix(xyz,"            ========================  Final geometry    =========================")
+         write(*,*)"      =================================================================================="
+
+         call write_matrix(xyz,"            ========================  Final geometry    =========================",io2)
+         write(io2,*)"      =================================================================================="
+
+
+
+
+         call cpu_time(opt_end)
+
+         !>Output over geometry optimization run
+         write(*,*) "Geometry optimization done in:", opt_end-opt_start, "s"
+         write(*,*)
+         write(io2,*) "Geometry optimization done in:", opt_end-opt_start, "s"
+         write(io2,*)
+
+
+   end subroutine opt_geo
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START EXPONENTS OPTIMIZATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf)
+  subroutine opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf, aufpunkt,pab,io4)
 
     !>Declaration of local variables
-    integer ::  nbf, ng,io2, nat, nel,io3, ausgabe_erfolgt,i
+    integer ::  nbf, ng,io2, nat, nel,io3, ausgabe_erfolgt,i,j,k,io4,m
     real(wp):: zeta(:),xyz(:,:), erep,chrg(:), minusescf, plusescf,escf, delta
-    real::finishtei, starttei,finishscf, startscf
-    real (wp), allocatable:: expo_gradient(:), zeta1(:), zeta2(:), plusexponents(:), pluscoefficients(:), minuexponents(:), minucoefficients(:),basis(:)
+    real::start, finish, startscf, finishscf, starttei, finishtei
+    real (wp), allocatable:: expo_gradient(:), zeta1(:), zeta2(:), plusexponents(:), pluscoefficients(:), minuexponents(:),change(:), minucoefficients(:),basis(:), aufpunkt(:,:), pab(:,:)
 
+call cpu_time(start)
 
     !>allocate needed memory
     allocate(expo_gradient(nbf), zeta1(nbf),plusexponents(ng*nbf), pluscoefficients(ng*nbf))
-                         allocate(zeta2(nbf),minuexponents(ng*nbf), minucoefficients(ng*nbf))
+                         allocate(zeta2(nbf),minuexponents(ng*nbf), minucoefficients(ng*nbf),change(nbf))
 
     ausgabe_erfolgt=1
-
+    zeta1=zeta
+    zeta2=zeta
     !>Setting starting value for exponent gradient
-    expo_gradient=0.5*zeta
-
-    !>Increasing and decreasing Slater exponents
-    zeta1=zeta-expo_gradient
-    zeta2=zeta+expo_gradient
-
-
+i=1
+k=1
+delta=1
+    do while(delta>0.00000000001)
+do j=1,nbf
+    !>Increasing and decreasing Slater
+    change=((0.5)**i)*zeta
+    zeta1=zeta
+    zeta2=zeta
+    zeta1(j)=zeta(j)-change(j)
+    zeta2(j)=zeta(j)+change(j)
 
       !>Expand Slater to Gaussians and calculate RHF Energy
       call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt)
+      call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
 
-      zeta1=zeta+expo_gradient
 
       !>Expand Slater to Gaussians and calculate RHF Energy
       call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt)
+      call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
 
 
-      i=1
+      expo_gradient(j)=plusescf-minusescf
+
+
+
       do while((escf<plusescf.and.escf<minusescf))
 
         !>Printing the actual step stdout+file
-        write(*,*)
-        write(*,*)"           -----------------------   PREPARATION RUN",i,"   -----------------------"
-        write(io2,*)"           -----------------------   PREPARATION RUN",i,"   -----------------------"
-        write(io2,*)
+
+        write(io4,*)"           ----------------   GRADIENT PREPARATION RUN",k,"  --------------------"
+        write(io4,*)
 
         !>Setting starting value for exponent gradient
-        expo_gradient=0.5*expo_gradient
+        change(j)=0.1*change(j)
 
         minuexponents=0
         minucoefficients=0
         minusescf=0
         plusexponents=0
+
         pluscoefficients=0
         plusescf=0
 
         !>Increasing and decreasing Slater exponents
-        zeta1=zeta-expo_gradient
-        zeta2=zeta+expo_gradient
-
+        zeta1(j)=zeta(j)-change(j)
+        zeta2(j)=zeta(j)+change(j)
 
           !>Expand Slater to Gaussians and calculate RHF Energy
          call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt)
+          call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
 
           !>Expand Slater to Gaussians and calculate RHF Energy
           call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-         call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt)
-         i=i+1
+         call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
+         expo_gradient(j)=plusescf-minusescf
+                 k=k+1
         end do
 
-        !>Taking care the loop will run at least one time
-        delta=1
 
-        !>Counter reset
-        i=1
-        !>Starting the steepest descent procedure
-           do while(delta>0.0001)
+end do
+
+
 
              !Setting new values for further and backward step
+             zeta1=zeta
+             zeta2=zeta
              zeta1=zeta-(0.5**i)*expo_gradient
-             zeta2=zeta+(0.5**i)*expo_gradient
 
+              write(io4,*)
+              write(io4,*)"    ══════    ζ exp.    ═════╤══════       ∇       ══════╤═══     new ζ  ══════"
+             do m=1, nbf
+             write(io4,*)"  ", zeta(m),"│", expo_gradient(m),"│", zeta1(m)
+           end do
+              write(io4,*)"   ━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━"
              !>Expand Slater to Gaussians and calculate RHF Energy
             call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt)
-
-             !>Expand Slater to Gaussians and calculate RHF Energy
-             call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-            call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt)
-
-            !>Control movement on the PES
-              if(escf>minusescf)then
+             call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
 
                 !Calculating convergence criterion
                 delta=escf-minusescf
+                if(delta>0)then
                 write(*,*)
-                write(*,*)"                                          Optimization run", i
-                write(*,*) "                           *************************************************"
-                write(*,*) "                                   ", "E_{HF}=", minusescf, "H                     "
-                write(*,*) "                                       ", "∆=", delta, "H                     "
-                write(io2,*)
                 write(*,*)
-                write(io2,*)"                                          Optimization run", i
-                write(io2,*) "                           *************************************************"
-                write(io2,*) "                                   ", "E_{HF}=", minusescf, "H                     "
-                write(io2,*) "                                       ", "∆=", delta, "H                     "
+                write(*,*)"                         ╭───────────────────────────────────────────────╮"
+                write(*,*)"                                      Optimization run", i
+                write(*,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                write(*,*) "                                  ", "E_{HF}=", minusescf, "H                     "
+                write(*,*) "                                       ∆=", delta, "H                     "
+                write(*,*)"                         ╰───────────────────────────────────────────────╯ "
                 write(io2,*)
+                write(io2,*)
+                write(io2,*)"                    ╭───────────────────────────────────────────────╮"
+                write(io2,*)"                                 Optimization run", i
+                write(io2,*) "                    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                write(io2,*) "                             ", "E_{HF}=", minusescf, "H                     "
+                write(io2,*) "                                  ∆=", delta, "H                     "
+                write(io2,*)"                    ╰───────────────────────────────────────────────╯ "
+                write(io2,*)
+                write(io2,*)
+                write(io4,*)
+                write(io4,*)
+                write(io4,*)"                    ╭───────────────────────────────────────────────╮  "
+                write(io4,*)"                                 Optimization run", i
+                write(io4,*) "                     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                write(io4,*) "                             ", "E_{HF}=", minusescf, "H                     "
+                write(io4,*) "                                  ∆=", delta, "H                     "
+                write(io4,*)"                    ╰───────────────────────────────────────────────╯ "
+                write(io4,*)
 
                 !Setting new Values
                 escf=minusescf
                 zeta=zeta1
                 i=i+1
-              elseif (Escf>plusescf) then
-
-                !Calculating convergence criterion
-                delta=escf-plusescf
-                write(*,*)
-                write(*,*)"                                          Optimization run", i
-                write(*,*) "                           *************************************************"
-                write(*,*) "                                   ", "E_{HF}=", plusescf, "H                     "
-                write(*,*) "                                       ", "∆=", delta, "H                     "
-                write(io2,*)
-                write(*,*)
-                write(io2,*)"                                          Optimization run", i
-                write(io2,*) "                           *************************************************"
-                write(io2,*) "                                   ", "E_{HF}=", plusescf, "H                     "
-                write(io2,*) "                                       ", "∆=", delta, "H                     "
-                write(io2,*)
-
-                !Setting new Values
-                escf=plusescf
-                zeta=zeta2
-                i=i+1
-
-              else
-                write(io2,*)
-                write(io2,*)"                                          Optimization run", i
-                write(io2,*) "                           *************************************************"
-                write(io2,*) "                                             run failed                     "
-                write(io2,*)
-                write(*,*)
-                write(*,*)"                                          Optimization run", i
-                write(*,*) "                           *************************************************"
-                write(*,*) "                                             run failed                     "
-                write(*,*)
-                delta=1
-                i=i+1
           end if
-        end do
-        write(io2,*)
-        call write_vector(zeta,"           ========================  Final exponents     =========================",io2)
-        write(io2,*)"      =================================================================================="
-        call write_vector(zeta,"           ========================  Final exponents     =========================")
-        write(*,*)"      =================================================================================="
+    !    end do
 
 
 
+end do
+write(io2,*)
+call write_vector(zeta,"           ╔═══════════════════════   Final exponents     ════════════════════════╗",io2)
+write(io2,*)"      =================================================================================="
+call write_vector(zeta,"           ╔═══════════════════════  Final exponents     ════════════════════════╗")
+write(*,*)"      =================================================================================="
+call write_vector(zeta,"           ╔═══════════════════════  Final exponents     ════════════════════════╗,",io4)
+write(io4,*)"      =================================================================================="
+call cpu_time(finish)
+write(*,*)
+write(*,*)"Slater exponents optimization done in:",finish-start,"s"
+write(io2,*)
+write(io2,*)"Slater exponents optimization done in:",finish-start,"s"
+write(io4,*)
+write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
   end subroutine opt_expo
 
@@ -1912,24 +1989,24 @@ end subroutine mulliken
 
       !>variable check stdout+file
       write(*,*)
-      write(*,*) "                          ==================================================="
-      write(*,*) "                          ||               System parameters               ||"
-      write(*,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-      write(*,*) "                          |Number of atoms          |", nat,"          |"
-      write(*,*) "                          |Number of α electrons    |", nelalpha,"          |"
-      write(*,*) "                          |Number of β electrons    |", nelbeta,"          |"
-      write(*,*) "                          |Number of basis functions|", nbf,"          |"
-      write(*,*) "                          ==================================================="
+      write(*,*) "                          ╔═════════════════════════════════════════════════╗"
+      write(*,*) "                          ║               System parameters                 ║"
+      write(*,*) "                          ╟──────────────────────────┬──────────────────────╢ "
+      write(*,*) "                          │ Number of atoms          │ ", nat,"        │ "
+      write(*,*) "                          │ Number of α electrons    │ ", nelalpha,"        │ "
+      write(*,*) "                          │ Number of β electrons    │ ", nelbeta,"        │ "
+      write(*,*) "                          │ Number of basis functions│ ", nbf,"        │ "
+      write(*,*) "                          ╘══════════════════════════╧══════════════════════╛"
       write(*,*)
       write(*,*)
-      write(io2,*) "                          ==================================================="
-      write(io2,*) "                          ||               System parameters               ||"
-      write(io2,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-      write(io2,*) "                          |Number of atoms          |", nat,"          |"
-      write(io2,*) "                          |Number of α electrons    |", nelalpha,"          |"
-      write(io2,*) "                          |Number of β electrons    |", nelbeta,"          |"
-      write(io2,*) "                          |Number of basis functions|", nbf,"          |"
-      write(io2,*) "                          ==================================================="
+      write(io2,*) "                          ╔═════════════════════════════════════════════════╗"
+      write(io2,*) "                          ║               System parameters                 ║"
+      write(io2,*) "                          ╟──────────────────────────┬──────────────────────╢ "
+      write(io2,*) "                          │ Number of atoms          │ ", nat,"        │ "
+      write(io2,*) "                          │ Number of α electrons    │ ", nelalpha,"        │ "
+      write(io2,*) "                          │ Number of β electrons    │ ", nelbeta,"        │ "
+      write(io2,*) "                          │ Number of basis functions│ ", nbf,"        │ "
+      write(io2,*) "                          ╘══════════════════════════╧══════════════════════╛"
       write(io2,*)
       write(io2,*)
       Write(io2,*)
@@ -1952,7 +2029,7 @@ end subroutine mulliken
   end subroutine unrestricted_input_reader
 
   !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END INPUT READER @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  subroutine unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt)
+  subroutine unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, aufpunkt,zeta)
 
 
     integer :: nbf, nelalpha, nelbeta,nat, io2, ng, io3, i, ausgabe_erfolgt
@@ -1962,6 +2039,7 @@ end subroutine mulliken
     real(wp), allocatable:: packsab(:), packtab(:), packvab(:), sab(:,:), tab(:,:), vab(:,:), xab(:,:),hab(:,:), Fockalpha(:,:), Fockbeta(:,:),Fock_newalpha(:,:),Fock_newbeta(:,:)
     real(wp),allocatable :: eigval(:), cabalpha(:,:), cabbeta(:,:), pabalpha(:,:), pabbeta(:,:), gabcd(:,:), twointeg(:), aufpunkt(:,:)
     real(wp),allocatable :: eigvec(:,:), basis(:)
+      real(wp),allocatable :: zeta(:)
 
     allocate(packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2),xab(nbf,nbf), eigval(nbf), eigvec(nbf,nbf), Fockalpha(nbf,nbf),Fock_newalpha(nbf,nbf), Fockbeta(nbf,nbf),Fock_newbeta(nbf,nbf))
     allocate(hab(nbf,nbf), sab(nbf,nbf), tab(nbf,nbf), vab(nbf,nbf), cabalpha(nbf,nbf), cabbeta(nbf,nbf), pabalpha(nbf,nbf), pabbeta(nbf,nbf), gabcd(nbf,nbf))
@@ -1994,14 +2072,14 @@ end subroutine mulliken
      if(ausgabe_erfolgt==0) then
      !>Initial Guess Annoucing (stdout+file)
      write(*,*)
-     write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
      write(*,*)"                                             Initial guess                                       "
-     write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
      write(*,*)
      write(io2,*)
-     write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
      write(io2,*)"                                             Initial guess                                      "
-     write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
    end if
 
      !>Setting initial Fock Matrix as a core Hamiltonian
@@ -2012,8 +2090,8 @@ end subroutine mulliken
      write(*,*)
      write(*,*)"                                         ✓ Fock matrices obtained        "
      write(io2,*)
-     call write_matrix(Fockalpha,"      ============================       Fock Matrix      ============================",io2)
-     write(io2,*)"      =================================================================================="
+     call write_matrix(Fockalpha,"      ╔═════════════════════════       Fock α Matrix      ════════════════════════╗",io2)
+      write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
      end if
 
      !>calculating coefficients from the initial Fock matrix
@@ -2030,13 +2108,13 @@ end subroutine mulliken
      call unres_new_density(nelalpha, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
      call unres_new_density(nelbeta, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
      write(*,*)
-     write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-     write(*,*)"                 <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
-     write(*,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(*,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(*,*)"                <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+     write(*,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
      write(io2,*)
-     write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
-     write(io2,*)"               <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
-     write(io2,*)"–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(io2,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
+     write(io2,*)"              <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
+     write(io2,*)"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
      end if
 
@@ -2049,13 +2127,14 @@ end subroutine mulliken
      if(ausgabe_erfolgt==0) then
      !Printing the initial Fock energy
      write(*,*)
-     write(*,*) "                           *************************************************"
-     write(*,*) "                           *  ", "initial E_{HF}=", escf, "H  *"
-     write(*,*) "                           *************************************************"
+     write(*,*) "                           ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+     write(*,*) "                           ┃  ", "initial }=", escf, "H  ┃"
+     write(*,*) "                           ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
      write(*,*)
      write(io2,*)
-     write(io2,*) "                           *************************************************"
-     write(io2,*) "                               ", "initial E_{HF}=", escf, "H"
+     write(io2,*) "                           ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+     write(io2,*) "                           ┃  ", "initial E_{HF}=", escf, "H  ┃"
+     write(io2,*) "                           ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
 
      end if
 
@@ -2065,15 +2144,15 @@ end subroutine mulliken
 
      if(ausgabe_erfolgt==0) then
        !Printing results and initial HF energy /stdout+file
-       call write_matrix(gabcd,"           ===========================      G Tensor       ===========================     ",io2)
-       write(io2,*)"      =================================================================================="
+       call write_matrix(gabcd,"           ╔═════════════════════════      G Tensor       ════════════════════════╗     ",io2)
+       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
        write(io2,*)
-       call write_matrix(Fock_newalpha,"         ==========================       Fock α Matrix      ==========================     ",io2)
-       write(io2,*)"      =================================================================================="
+       call write_matrix(Fock_newalpha,"         ╔═════════════════════════       Fock α Matrix      ════════════════════════╗    ",io2)
+       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
        write(io2,*)
        write(io2,*)
-       call write_matrix(Fock_newbeta,"         ==========================       Fock β Matrix      ==========================     ",io2)
-       write(io2,*)"      =================================================================================="
+       call write_matrix(Fock_newbeta,"         ╔═════════════════════════       Fock β Matrix      ════════════════════════╗     ",io2)
+       write(io2,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
        write(io2,*)
      end if
 
@@ -2083,15 +2162,15 @@ end subroutine mulliken
     if(ausgabe_erfolgt==0) then
      !>Starting SCF Procedure
       write(*,*)
-      write(*,*)"    ==============================================================================================="
-      write(*,*)"    ||                                        SCF ITERATIONS                                     ||"
-      write(*,*)"    ==============================================================================================="
+      write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+      write(*,*)"    ║                                         SCF ITERATIONS                                      ║ "
+      write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
       write(*,*)
       write(io2,*)
       write(io2,*)
-      write(io2,*)"    ==============================================================================================="
-      write(io2,*)"    ||                                       SCF ITERATIONS                                      ||"
-      write(io2,*)"    ==============================================================================================="
+      write(io2,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+      write(io2,*)"    ║                                         SCF ITERATIONS                                      ║ "
+      write(io2,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
       write(io2,*)
     end if
 
@@ -2127,43 +2206,42 @@ end subroutine mulliken
      !Printing information about end of SCF Procedure
      if (i<50) then
        if(ausgabe_Erfolgt==0) then
-
-         write(*,*)"    ==============================================================================================="
-         write(*,*)"    ||                                      SCF SUCCSESFULL                                      ||"
-         write(*,*)"    ==============================================================================================="
-         write(*,*)
-         write(*,*)
-         write(*,*)
-         write(*,*) "                          ==================================================="
-         write(*,*) "                          ||                 Energy Values                 ||"
-         write(*,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-         write(*,*) "                          |Nuc. rep.=", Erep, "H           |"
-         write(*,*) "                          |E HF     =", Escf, "H           |"
-         write(*,*) "                          |.................................................|"
-         write(*,*) "                          |E Tot.   =", Erep+escf, "H           |"
-         write(*,*) "                          |         =", (Erep+escf)*27.2114, "eV          |"
-         write(*,1)"                           |         =  ", evenergy,"     kcal        |"
          1 format (a,e20.14,a)
-         write(*,*) "                          ==================================================="
-         write(io2,*)"    ==============================================================================================="
-         write(io2,*)"    ||                                      SCF SUCCSESFULL                                      ||"
-         write(io2,*)"    ==============================================================================================="
+         write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+         write(*,*)"    ║                                        SCF SUCCSESFULL                                      ║ "
+         write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
+         write(*,*)
+         write(*,*)
+         write(*,*)
+         write(*,*) "                          ╔═════════════════════════════════════════════════╗"
+         write(*,*) "                          ║                 Energy Values                   ║"
+         write(*,*) "                          ╠═════════════════════════════════════════════════╣"
+         write(*,*) "                          ┃Nuc. rep.=", Erep, "H           ┃"
+         write(*,*) "                          ┃E HF     =", Escf, "H           ┃"
+         write(*,*) "                          ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩"
+         write(*,*) "                          │E Tot.   =", Erep+escf, "H           │"
+         write(*,*) "                          │         =", (Erep+escf)*2.72114, "eV          │"
+         write(*,1) "                           │         =  ", evenergy,"     kcal        │"
+         write(*,*) "                          └─────────────────────────────────────────────────┘"
+         write(io2,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+         write(io2,*)"    ║                                        SCF SUCCSESFULL                                      ║ "
+         write(io2,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
          write(io2,*)
          write(io2,*)
          write(io2,*)
-         write(io2,*) "                          ==================================================="
-         write(io2,*) "                          ||                 Energy Values                 ||"
-         write(io2,*) "                          |–––––––––––––––––––––––––––––––––––––––––––––––––|"
-         write(io2,*) "                          |Nuc. rep.=", Erep, "H           |"
-         write(io2,*) "                          |E HF     =", Escf, "H           |"
-         write(io2,*) "                          |.................................................|"
-         write(io2,*) "                          |E Tot.   =", Erep+escf, "H           |"
-         write(io2,*) "                          |         =", (Erep+escf)*27.2114, "eV          |"
-         write(io2,1)"                           |         =  ", evenergy,"     kcal        |"
-         write(io2,*) "                          ==================================================="
-         write(io3,*)"    ==============================================================================================="
-         write(io3,*)"    ||                                      SCF SUCCSESFULL                                      ||"
-         write(io3,*)"    ==============================================================================================="
+         write(io2,*) "                          ╔═════════════════════════════════════════════════╗"
+         write(io2,*) "                          ║                 Energy Values                   ║"
+         write(io2,*) "                          ╠═════════════════════════════════════════════════╣"
+         write(io2,*) "                          ┃Nuc. rep.=", Erep, "H           ┃"
+         write(io2,*) "                          ┃E HF     =", Escf, "H           ┃"
+         write(io2,*) "                          ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩"
+         write(io2,*) "                          │E Tot.   =", Erep+escf, "H           │"
+         write(io2,*) "                          │         =", (Erep+escf)*2.72114, "eV          │"
+         write(io2,1) "                           │         =  ", evenergy,"     kcal        │"
+         write(io2,*) "                          └─────────────────────────────────────────────────┘"
+         write(io3,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
+         write(io3,*)"    ║                                        SCF SUCCSESFULL                                      ║ "
+         write(io3,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
          write(io3,*)
        end if
      else
@@ -2180,7 +2258,9 @@ end subroutine mulliken
        write(io3,*) "SCF iterations time:", finishscf-startscf, "s"
       end if
       escf=escf+erep
-      write(*,*)"final SCF energy",escf
+
+      call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAA")
+      call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
 
 
 
@@ -2418,20 +2498,20 @@ subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,
     write(*,*)
     write(*,*)"                                          ✓ G tensor obtained       "
     write(io2,*)"                                      ✓ New G tensor obtained       "
-    call write_matrix(gabcd,"                =========================      G Tensor      ==========================",io3)
-    write(io3,*)"      =================================================================================="
+    call write_matrix(gabcd,"                ╔════════════════════════      G Tensor      ════════════════════════╗",io3)
+    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io3,*)
     write(*,*)
     write(*,*)"                                      ✓ New Fock α Matrix obtained       "
     write(*,*)
     write(*,*)"                                      ✓ New Fock β Matrix obtained       "
     write(io2,*)"                                    ✓ New Fock α Matrix obtained       "
-    call write_matrix(Fock_newalpha,"               ========================     Fock α Matrix     =========================",io3)
-    write(io3,*)"      =================================================================================="
+    call write_matrix(Fock_newalpha,"               ╔════════════════════════     Fock α Matrix     ════════════════════════╗",io3)
+    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io3,*)
     write(io2,*)"                                    ✓ New Fock β Matrix obtained       "
-    call write_matrix(Fock_newbeta,"               ========================      Fock β Matrix      =========================",io3)
-    write(io3,*)"      =================================================================================="
+    call write_matrix(Fock_newbeta,"               ╔════════════════════════      Fock β Matrix      ════════════════════════╗",io3)
+    write(io3,*)"      ╚════════════════════════════════════════════════════════════════════════════════╝"
     write(io3,*)
   end if
 
@@ -2441,17 +2521,17 @@ subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,
   if(ausgabe_erfolgt==0) then
     !Printing new HF energy
     write(*,*)
-    write(*,*) "                           *************************************************"
+    write(*,*) "                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(*,*) "                                   ", "E_{HF}=", newescf, "H                     "
     write(*,*)
     write(*,*)
     write(io2,*)
-    write(io2,*) "                           *************************************************"
+    write(io2,*) "                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io2,*) "                                   ", "E_{HF}=", newescf, "H                     "
     write(io2,*)
     write(io2,*)
     write(io3,*)
-    write(io3,*) "                           *************************************************"
+    write(io3,*) "                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     write(io3,*) "                                   ", "E_{HF}=", newescf, "H                     "
     write(io3,*)
     write(io3,*)
@@ -2461,5 +2541,63 @@ end subroutine unrest_iterations
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END SCF ITERATIONS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
+
+!>Declaration of variables
+real(wp) :: xyz(:,:), chrg(:), cabalpha(:,:),cabbeta(:,:), exponents(:),basis(:),zeta(:)
+real(wp), allocatable:: spinsab(:,:), spintab(:,:), spinvab(:,:)
+real(wp), allocatable::aufpunkt(:,:)
+integer:: nbf, ng,nat, ausgabe_erfolgt,nelalpha, nelbeta
+integer :: i, j,io2,k
+
+call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!")
+
+!Allocate needed memory
+allocate(spinsab(nbf,nbf), spintab(nbf,nbf),spinvab(nbf,nbf))
+
+
+k=0
+j=1
+
+spinsab=0
+spintab=0
+spinvab=0
+!Run over all atoms
+do i=1,nat
+
+  !Set counter of basis functions per atom
+  k=k+basis(i)
+  do while(j<=k)
+
+    !Set aufpunkt for each orbital
+    aufpunkt(1:3,j)=xyz(1:3,i)
+
+    j=j+1
+  end do
+end do
+
+  call write_matrix(cabbeta,"AUFPUNKT")
+!Loop over all electron pairs
+do i=1, nbf
+
+  do j=1, nbf
+write(*,*)i, "i", j,"j"
+    !CAlculating one electron integrals (overlap, kinetic enegry, e-nuc attraction)
+    call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),zeta(i:i),zeta(j:j),cabalpha(i:i,i),cabbeta(j:j,j), spinsab(i,j), spintab(i,j), spinvab(i,j))
+
+    write(*,*)aufpunkt(1:3,i),exponents(i:i),cabalpha(i:i,i)
+    write(*,*) aufpunkt(1:3,j),exponents(j:j),cabbeta(j:j,j)
+    write(*,*) spinsab(i,j), spintab(i,j), spinvab(i,j)
+    write(*,*)spinsab(i,j)
+
+  end do
+
+end do
+
+call write_matrix(spinsab, "SPIN OVERLAP")
+
+ ! call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),exponents(ng*(i-1)+1:ng*i),exponents(ng*(j-1)+1:ng*j),cab(ng*(i-1)+1:ng*i),cab(ng*(j-1)+1:ng*j), spinsab(i,j), spintab(i,j), spinvab(i,j))
+
+end subroutine spin_contamination
 
 end module scf_main
