@@ -1,6 +1,6 @@
 !      ____       __
 !     / /| |     / /
-!    /   | | /| / /   this program was written by Łukasz Wantoch
+!    / / | | /| / /   this program was written by Łukasz Wantoch
 !   / /__| |/ |/ /     During the laboratory course of WP 4 in summerterm 2021
 !  /_____/__/|__/       at the Rheinrich-Wilhelm-University of Bonn
 
