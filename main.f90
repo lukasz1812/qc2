@@ -295,13 +295,13 @@ subroutine scf_prog(input)
 
       else
         write(*,*)
-        write(*,*)"          ┌──────────────────────────────────────────────────────────────────────────┐"
-        write(*,*)"          │                                  OPTIONS                                 │"
-        write(*,*)"          └──────────────────────────────────────────────────────────────────────────┘"
+        write(*,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
+        write(*,*)"             │                                  OPTIONS                                 │"
+        write(*,*)"             └──────────────────────────────────────────────────────────────────────────┘"
         write(io2,*)
-        write(io2,*)"          ┌──────────────────────────────────────────────────────────────────────────┐"
-        write(io2,*)"          │                                  OPTIONS                                 │"
-        write(io2,*)"          └──────────────────────────────────────────────────────────────────────────┘"
+        write(io2,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
+        write(io2,*)"             │                                  OPTIONS                                 │"
+        write(io2,*)"             └──────────────────────────────────────────────────────────────────────────┘"
 
 
         !> Option selection
@@ -325,7 +325,9 @@ subroutine scf_prog(input)
             write(io2,*)"                    • Charge denisty calculation"
 
             call charge_density(zeta, pab, cab, nbf, aufpunkt,density_point,io2)
+          case ("plotbash")
 
+              write(*,*)"Final SCF energy",Erep+escf
           case default
             write(*,*)
             write(*,*)"                    ┌──────────────────────────────────────────────────────┐"
@@ -363,7 +365,7 @@ subroutine scf_prog(input)
 
 
       !> Reading input file
-      call unrestricted_input_reader(version,input_name,io,nat,nelalpha,nelbeta,nbf,xyz,chrg,zeta,io2,basis)
+      call unrestricted_input_reader(version,input_name,io,nat,nelalpha,nelbeta,nbf,xyz,chrg,zeta,io2,basis,option)
       call cpu_time(start)
       allocate(aufpunkt(3,nbf))
       ausgabe_erfolgt=0
@@ -398,6 +400,36 @@ subroutine scf_prog(input)
       write(io2,*)"Thereof: for tei         ", finishtei-starttei, "s"
       write(io2,*)"         for SCF         ", finishscf-startscf, "s"
 
+      if(trim(option)=="none") then
+
+      else
+        write(*,*)
+        write(*,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
+        write(*,*)"             │                                  OPTIONS                                 │"
+        write(*,*)"             └──────────────────────────────────────────────────────────────────────────┘"
+        write(io2,*)
+        write(io2,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
+        write(io2,*)"             │                                  OPTIONS                                 │"
+        write(io2,*)"             └──────────────────────────────────────────────────────────────────────────┘"
+
+
+        !> Option selection
+        select case(Option)
+          case ("plotbash")
+
+              write(*,*)"Final SCF energy",escf+erep
+            case default
+            write(*,*)
+            write(*,*)"                    ┌──────────────────────────────────────────────────────┐"
+            write(*,*)"                                              ERROR                                  "
+            write(*,*)"                    └──────────────────────────────────────────────────────┘"
+            write(*,*)
+            write(*,*)"                     No correct option chosen, check your input file"
+            write(*,*)"                     Options are:"
+            write(*,*)"                                     none : no options"
+            write(*,*)"                                 plotbash : returning energy for PES plot"
+        end select
+      end if
 
 
 
@@ -412,7 +444,6 @@ subroutine scf_prog(input)
       write(*,*)"                                       UHF for  open  shell calculation"
       write(*,*)
       write(*,*)
-
 
 
     end select
@@ -530,20 +561,27 @@ subroutine input_reader(version,input,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis,opt
     write(io2,*)
     write(io2,*)
     Write(io2,*)
-    call write_matrix(xyz, "       ═════ Atom positions/[Bohr] ═════", io2)
-    write(io2,*)"         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ "
+
+
+            write(io2,*)"                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+            write(io2,*)"                             ┃          Atom positions/[Bohr]          ┃ "
+            write(io2,*)"                             ┃      X             Y             Z      ┃ "
+            write(io2,*)"                             ┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩ "
+        do i=1,nat
+          if(i<nat) then
+            write(io2,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+            write(io2,*)"                             ├┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┤"
+          else
+            write(io2,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+            write(io2,*)"                             ┕━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┙"
+          end if
+    end do
     write(io2,*)
-    write(io2,*)
-    call write_vector(chrg,  "        ══ Charge/[q] ══", io2)
-    write(io2,*)"         ━━━━━━━━━━━━━━━"
-    write(io2,*)
-    write(io2,*)
-    call write_vector(basis,"        ══ Basis fct. ══", io2)
-    write(io2,*)"         ━━━━━━━━━━━━━━━"
-    write(io2,*)
-    write(io2,*)
-    call write_vector(zeta,"        ════ ζ exp. ════",io2)
-    write(io2,*)"        ━━━━━━━━━━━━━━━"
+
+    call write_nice_vector(chrg,4,"Charge/[q]",io2)
+    call write_nice_vector(basis,3,"Basis fct.",io2)
+    call write_nice_vector(zeta,3,"ζ exp.",io2)
+
 
 
 end subroutine input_reader
@@ -966,7 +1004,7 @@ subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,i
     call write_nice_matrix(tab, "Kinetic Matrix T", io2)
 
     write(io2,*)
-    call write_nice_matrix(vab, "V Matrix", io2)
+    call write_nice_matrix(vab, "Nuclear Attraction Matrix V", io2)
   end if
 end subroutine oneelint
 
@@ -1007,11 +1045,11 @@ end subroutine oneelint
      if(ausgabe_erfolgt==0) then
        !>Text output into file
        write(io2,*)
-       write(io2,*)"                                       Matrix succsesfully packed."
+       write(io2,*)"                                      Matrix succsesfully packed."
      end if
    else
      if(ausgabe_erfolgt==0) then
-       write(io2,*) "                                        Matrix is not symmetric."
+       write(io2,*) "                                          Matrix is not symmetric."
      end if
    end if
 
@@ -1663,30 +1701,30 @@ delta=1
                  write(*,*)
                  write(*,*)
                  write(*,*)
-                 write(*,*)"                         ╭───────────────────────────────────────────────╮"
-                 write(*,*)"                                      Optimization run", m
-                 write(*,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-                 write(*,*) "                                  ", "E_{HF}=", eminus, "H                     "
-                 write(*,*) "                                       ∆=", delta, "H                     "
-                 write(*,*)"                         ╰───────────────────────────────────────────────╯ "
+                 write(*,*)"                              ╭───────────────────────────────────────────────╮"
+                 write(*,*)"                                           Optimization run", m
+                 write(*,*) "                              ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(*,*) "                                       ", "E_{HF}=", eminus, "H                     "
+                 write(*,*) "                                            ∆=", delta, "H                     "
+                 write(*,*)"                              ╰───────────────────────────────────────────────╯ "
                  write(io2,*)
                  write(io2,*)
-                 write(io2,*)"                    ╭───────────────────────────────────────────────╮"
-                 write(io2,*)"                                 Optimization run", m
-                 write(io2,*) "                    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-                 write(io2,*) "                             ", "E_{HF}=",eminus, "H                     "
-                 write(io2,*) "                                  ∆=", delta, "H                     "
-                 write(io2,*)"                    ╰───────────────────────────────────────────────╯ "
+                 write(io2,*)"                         ╭───────────────────────────────────────────────╮"
+                 write(io2,*)"                                      Optimization run", m
+                 write(io2,*) "                         ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io2,*) "                                  ", "E_{HF}=",eminus, "H                     "
+                 write(io2,*) "                                       ∆=", delta, "H                     "
+                 write(io2,*)"                         ╰───────────────────────────────────────────────╯ "
                  write(io2,*)
                  write(io2,*)
                  write(io4,*)
                  write(io4,*)
-                 write(io4,*)"                    ╭───────────────────────────────────────────────╮  "
-                 write(io4,*)"                                 Optimization run", m
-                 write(io4,*) "                     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-                 write(io4,*) "                             ", "E_{HF}=", eminus, "H                     "
-                 write(io4,*) "                                  ∆=", delta, "H                     "
-                 write(io4,*)"                    ╰───────────────────────────────────────────────╯ "
+                 write(io4,*)"                          ╭───────────────────────────────────────────────╮  "
+                 write(io4,*)"                                       Optimization run", m
+                 write(io4,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io4,*) "                                  ", "E_{HF}=", eminus, "H                     "
+                 write(io4,*) "                                       ∆=", delta, "H                     "
+                 write(io4,*)"                          ╰───────────────────────────────────────────────╯ "
 
                  m=m+1
                  !Setting new Values
@@ -1700,30 +1738,30 @@ delta=1
                  write(*,*)
                  write(*,*)
                  write(*,*)
-                 write(*,*)"                         ╭───────────────────────────────────────────────╮"
-                 write(*,*)"                                      Optimization run", m
+                 write(*,*)"                          ╭───────────────────────────────────────────────╮"
+                 write(*,*)"                                       Optimization run", m
                  write(*,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-                 write(*,*) "                                  ", "E_{HF}=", eplus, "H                     "
-                 write(*,*) "                                       ∆=", delta, "H                     "
-                 write(*,*)"                         ╰───────────────────────────────────────────────╯ "
+                 write(*,*) "                                   ", "E_{HF}=",plus, "H                     "
+                 write(*,*) "                                        ∆=", delta, "H                     "
+                 write(*,*)"                          ╰───────────────────────────────────────────────╯ "
                  write(io2,*)
                  write(io2,*)
-                 write(io2,*)"                    ╭───────────────────────────────────────────────╮"
-                 write(io2,*)"                                 Optimization run", m
-                 write(io2,*) "                    ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-                 write(io2,*) "                             ", "E_{HF}=",plus, "H                     "
-                 write(io2,*) "                                  ∆=", eplus, "H                     "
-                 write(io2,*)"                    ╰───────────────────────────────────────────────╯ "
+                 write(io2,*)"                          ╭───────────────────────────────────────────────╮"
+                 write(io2,*)"                                       Optimization run", m
+                 write(io2,*) "                          ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io2,*) "                                   ", "E_{HF}=",plus, "H                     "
+                 write(io2,*) "                                        ∆=", delta, "H                     "
+                 write(io2,*)"                          ╰───────────────────────────────────────────────╯ "
                  write(io2,*)
                  write(io2,*)
                  write(io4,*)
                  write(io4,*)
-                 write(io4,*)"                    ╭───────────────────────────────────────────────╮  "
-                 write(io4,*)"                                 Optimization run", m
-                 write(io4,*) "                     ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-                 write(io4,*) "                             ", "E_{HF}=", eminus, "H                     "
-                 write(io4,*) "                                  ∆=", delta, "H                     "
-                 write(io4,*)"                    ╰───────────────────────────────────────────────╯ "
+                 write(io4,*)"                           ╭───────────────────────────────────────────────╮  "
+                 write(io4,*)"                                        Optimization run", m
+                 write(io4,*) "                           ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+                 write(io4,*) "                                  ", "E_{HF}=", eminus, "H                     "
+                 write(io4,*) "                                       ∆=", delta, "H                     "
+                 write(io4,*)"                           ╰───────────────────────────────────────────────╯ "
 
                  m=m+1
 
@@ -1738,19 +1776,47 @@ delta=1
 
          end do
 
-         call write_matrix(xyz,"Final geometry/[Bohr]")
+         Write(io2,*)
 
-         call write_matrix(xyz,"            ========================  Final geometry    =========================",io2)
-         write(io2,*)"      =================================================================================="
 
+                 write(io2,*)"                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+                 write(io2,*)"                             ┃        New atom positions/[Bohr]        ┃ "
+                 write(io2,*)"                             ┃      X             Y             Z      ┃ "
+                 write(io2,*)"                             ┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩ "
+             do i=1,nat
+               if(i<nat) then
+                 write(io2,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+                 write(io2,*)"                             ├┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┤"
+               else
+                 write(io2,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+                 write(io2,*)"                             ┕━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┙"
+               end if
+             end do
+
+                      Write(*,*)
+                       write(*,*)"                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+                       write(*,*)"                             ┃        New atom positions/[Bohr]        ┃ "
+                       write(*,*)"                             ┃      X             Y             Z      ┃ "
+                       write(*,*)"                             ┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩ "
+                   do i=1,nat
+                     if(i<nat) then
+                       write(*,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+                       write(*,*)"                             ├┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┤"
+                     else
+                       write(*,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+                       write(*,*)"                             ┕━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┙"
+                     end if
+end do
 
 
 
          call cpu_time(opt_end)
 
          !>Output over geometry optimization run
+         write(*,*)
          write(*,*) "Geometry optimization done in:", opt_end-opt_start, "s"
          write(*,*)
+         write(io2,*)
          write(io2,*) "Geometry optimization done in:", opt_end-opt_start, "s"
          write(io2,*)
 
@@ -1897,12 +1963,12 @@ end do
 
 end do
 write(io2,*)
-call write_vector(zeta,"           ╔═══════════════════════   Final exponents     ════════════════════════╗",io2)
-write(io2,*)"      =================================================================================="
-call write_vector(zeta,"           ╔═══════════════════════  Final exponents     ════════════════════════╗")
-write(*,*)"      =================================================================================="
-call write_vector(zeta,"           ╔═══════════════════════  Final exponents     ════════════════════════╗,",io4)
-write(io4,*)"      =================================================================================="
+call write_nice_vector(zeta,3," new ζ",io2)
+
+call write_nice_vector(zeta,3," new ζ")
+
+call write_nice_vector(zeta,3," new ζ",io4)
+
 call cpu_time(finish)
 write(*,*)
 write(*,*)"Slater exponents optimization done in:",finish-start,"s"
@@ -1923,11 +1989,12 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
 
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   INPUT READER   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  subroutine unrestricted_input_reader(version,input,io,nat,nelalpha,nelbeta,nbf,xyz,chrg,zeta,io2,basis)
+  subroutine unrestricted_input_reader(version,input,io,nat,nelalpha,nelbeta,nbf,xyz,chrg,zeta,io2,basis,option)
 
     !>declaration of local variables
     character(len = 100):: input
     character(len = 3):: version
+    character(len=8)::option
     integer :: nat, nelalpha,nelbeta, nbf, io, i, j,k,  dim,io2, nelchange
     real(wp), allocatable :: xyz(:,:),chrg(:), zeta(:), basis(:)
 
@@ -1965,6 +2032,8 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
           end do
 
         end do
+        read(io,*)option
+        write(*,*)option
 
       !Check id number of electrons is correct
       if(nelbeta>nelalpha) then
@@ -2249,10 +2318,10 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
        write(io3,*) "======================================================================================================="
        write(io3,*) "SCF iterations time:", finishscf-startscf, "s"
       end if
-      escf=escf+erep
 
-      call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAA")
-      call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
+
+  !    call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAA")
+  !    call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
 
 
 
@@ -2535,71 +2604,74 @@ end subroutine unrest_iterations
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
 
-!>Declaration of variables
-real(wp) :: xyz(:,:), chrg(:), cabalpha(:,:),cabbeta(:,:), exponents(:),basis(:),zeta(:)
-real(wp), allocatable:: spinsab(:,:), spintab(:,:), spinvab(:,:)
-real(wp), allocatable::aufpunkt(:,:)
-integer:: nbf, ng,nat, ausgabe_erfolgt,nelalpha, nelbeta
-integer :: i, j,io2,k
-
-call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!")
-
-!Allocate needed memory
-allocate(spinsab(nbf,nbf), spintab(nbf,nbf),spinvab(nbf,nbf))
+  !>Declaration of variables
+  real(wp) :: xyz(:,:), chrg(:), cabalpha(:,:),cabbeta(:,:), exponents(:),basis(:),zeta(:)
+  real(wp), allocatable:: spinsab(:,:), spintab(:,:), spinvab(:,:)
+  real(wp), allocatable::aufpunkt(:,:)
+  integer:: nbf, ng,nat, ausgabe_erfolgt,nelalpha, nelbeta
+  integer :: i, j,io2,k
 
 
-k=0
-j=1
+  !Allocate needed memory
+  allocate(spinsab(nbf,nbf), spintab(nbf,nbf),spinvab(nbf,nbf))
 
-spinsab=0
-spintab=0
-spinvab=0
-!Run over all atoms
-do i=1,nat
 
-  !Set counter of basis functions per atom
-  k=k+basis(i)
-  do while(j<=k)
+  k=0
+  j=1
 
-    !Set aufpunkt for each orbital
-    aufpunkt(1:3,j)=xyz(1:3,i)
+  spinsab=0
+  spintab=0
+  spinvab=0
+  !Run over all atoms
+  do i=1,nat
 
-    j=j+1
-  end do
-end do
+    !Set counter of basis functions per atom
+    k=k+basis(i)
+      do while(j<=k)
+        !Set aufpunkt for each orbital
+        aufpunkt(1:3,j)=xyz(1:3,i)
+        j=j+1
+      end do
+    end do
 
-  call write_matrix(cabbeta,"AUFPUNKT")
-!Loop over all electron pairs
-do i=1, nbf
 
-  do j=1, nbf
-write(*,*)i, "i", j,"j"
-    !CAlculating one electron integrals (overlap, kinetic enegry, e-nuc attraction)
-    call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),zeta(i:i),zeta(j:j),cabalpha(i:i,i),cabbeta(j:j,j), spinsab(i,j), spintab(i,j), spinvab(i,j))
+    !Loop over all electron pairs
+    do i=1, nbf
 
-    write(*,*)aufpunkt(1:3,i),exponents(i:i),cabalpha(i:i,i)
-    write(*,*) aufpunkt(1:3,j),exponents(j:j),cabbeta(j:j,j)
-    write(*,*) spinsab(i,j), spintab(i,j), spinvab(i,j)
-    write(*,*)spinsab(i,j)
+      do j=1, nbf
+        write(*,*)i, "i", j,"j"
+        !CAlculating one electron integrals (overlap, kinetic enegry, e-nuc attraction)
+        call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),zeta(i:i),zeta(j:j),cabalpha(i:i,i),cabbeta(j:j,j), spinsab(i,j), spintab(i,j), spinvab(i,j))
 
-  end do
+        write(*,*)aufpunkt(1:3,i),exponents(i:i),cabalpha(i:i,i)
+        write(*,*) aufpunkt(1:3,j),exponents(j:j),cabbeta(j:j,j)
+        write(*,*) spinsab(i,j), spintab(i,j), spinvab(i,j)
+        write(*,*)spinsab(i,j)
 
-end do
+      end do
 
-call write_nice_matrix(spinsab, "SPIN OVERLAP")
+    end do
 
+  
  ! call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),exponents(ng*(i-1)+1:ng*i),exponents(ng*(j-1)+1:ng*j),cab(ng*(i-1)+1:ng*i),cab(ng*(j-1)+1:ng*j), spinsab(i,j), spintab(i,j), spinvab(i,j))
 
 end subroutine spin_contamination
+
+!▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+!░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+!░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   Some extra subroutines written while waiting for some explanations  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+!░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                  that's why written in bad style                      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+!░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+!▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 subroutine write_nice_matrix(matrix,name,unit)
 
   !>Declaration of local variables
   integer:: dimension, i,io2, length, centering,iunit, textlength,textcenter1, textcenter2, check
   real(wp) :: matrix(:,:)
-  character(len=18):: cmft
-  character(len=19)::cmft2
-  character(len=13)::cmft3
+  character(len=22):: cmft
+  character(len=25)::cmft2
+  character(len=17)::cmft3
   character(len=*),intent(in),optional :: name
   integer, intent(in),optional :: unit
 
@@ -2618,7 +2690,10 @@ subroutine write_nice_matrix(matrix,name,unit)
 
 
    textcenter1=((length-3)-textlength)/2
-   centering=(103-length)/2
+   centering=((103-length)-6)/2
+   if(centering<0)then
+     centering=1
+   end if
 
    check=modulo(textlength,2)
 
@@ -2629,22 +2704,29 @@ subroutine write_nice_matrix(matrix,name,unit)
      textcenter2=textcenter1
    end if
 
- cmft="(xxX,a,n(f14.7)a)"
- cmft2="(xxX,a,xxX,a,xxX,a)"
- cmft3="(xxX,a,xxX,a)"
+   if(textcenter1<=0)then
+     textcenter1=1
+ end if
+   if(textcenter2<=0)then
+     textcenter2=1
+ end if
 
 
-  write(cmft(8:8),'(I1)') dimension
-  write(cmft(2:3), "(I2)") centering
-  write(cmft(8:8),'(I1)') dimension
-  write(cmft(2:3), "(I2)") centering
-  write(cmft2(2:3), "(I2)") centering
-  write(cmft2(8:9), "(I2)") textcenter1
-  write(cmft2(14:15), "(I2)") textcenter2
+ cmft="(xxxxX,a,nnn(f14.7),a)"
+ cmft2="(xxxxX,a,xxxxX,a,xxxxX,a)"
+ cmft3="(xxxxX,a,xxxxX,a)"
+
+
+  write(cmft(10:12),'(I3)') dimension
+  write(cmft(2:5), "(I4)") centering
+  write(cmft(2:5), "(I4)") centering
+  write(cmft2(2:5), "(I4)") centering
+  write(cmft2(10:13), "(I4)") textcenter1
+  write(cmft2(18:21), "(I4)") textcenter2
   !write(cmft2(8:9), "(I2)") length-5
-  write(cmft3(2:3), "(I2)") centering
-  write(cmft3(8:9), "(I2)") length-5
-
+  write(cmft3(2:5), "(I4)") centering
+  write(cmft3(10:13), "(I4)") length-5
+ write(iunit,*)cmft2, centering
    write(iunit,cmft2)" ╔═",trim(name),"═╗"
    write(iunit,cmft3)" ║","  ║"
    do i=1, dimension
@@ -2653,5 +2735,93 @@ subroutine write_nice_matrix(matrix,name,unit)
    write(iunit,cmft3)" ╚═","═╝"
    write(iunit,*)
 end subroutine  write_nice_matrix
+
+subroutine write_nice_vector(vector,precision,name,unit)
+
+  !>Declaration of local variables
+  integer:: dimension, i,io2, length, centering,iunit, textlength,textcenter1, textcenter2, check1,check2, precision
+  real(wp) :: vector(:)
+  character(len=18):: cmft
+  character(len=19)::cmft2
+  character(len=16)::cmft3
+  character(len=7)::cmft4
+  character(len=*),intent(in),optional :: name
+  integer, intent(in),optional :: unit
+
+
+
+  if (present(unit)) then
+      iunit = unit
+  else
+      iunit = output_unit
+  end if
+  !>checking the dimensionality of the matrix
+   dimension=(size(vector))
+   length=(precision+7)+7
+   textlength=len(trim(name))
+
+
+   textcenter1=((length-3)-textlength)/2
+   centering=(103-length)/2
+
+   check1=modulo(length,2)
+   check2=modulo(textlength,2)
+
+   if(check1==0.and.check2==0) then
+     textcenter2=textcenter1-1
+   else if(check1==1.and.check2==1) then
+     textcenter2=textcenter1
+
+   else
+     textcenter1=textcenter1-1
+     textcenter2=textcenter1
+
+   end if
+
+ cmft="(xxX,a,(fxx.x),a)"
+ cmft2="(xxX,a,xxX,a,xxX,a)"
+ cmft3="(xxX,a,xxX,a)"
+ cmft4="(xxX,a)"
+
+  write(cmft(10:11), '(I2)') precision+7
+  write(cmft(13:13), '(I1)') precision
+  write(cmft(2:3), "(I2)") centering
+  write(cmft(2:3), "(I2)") centering
+  write(cmft2(2:3), "(I2)") centering
+  write(cmft2(8:9), "(I2)") textcenter1
+  write(cmft2(14:15), "(I2)") textcenter2
+  !write(cmft2(8:9), "(I2)") length-5
+  write(cmft3(2:3), "(I2)") centering
+  write(cmft3(8:9), "(I2)") length-5
+  write(cmft4(2:3), "(I2)") centering
+
+
+
+  write(iunit,cmft4, advance="no")" ┏"
+   do i=1,length-3
+     write(iunit,"(a)",advance="no")"━"
+   end do
+   write(iunit,"(a)", advance="yes")"┓"
+
+   write(iunit,cmft2)" ┃ ",trim(name)," ┃"
+
+   write(iunit,cmft4, advance="no")" ┠"
+    do i=1,length-3
+      write(iunit,"(a)",advance="no")"─"
+    end do
+    write(iunit,"(a)", advance="yes")"┨"
+
+
+
+   do i=1, dimension
+     write(iunit,cmft)" ┃", vector(i), "    ┃"
+   end do
+         write(iunit,cmft4, advance="no")" ┗"
+    do i=1,length-3
+      write(iunit,"(a)",advance="no")"━"
+    end do
+      write(iunit,"(a)", advance="yes")"┛"
+   write(iunit,*)
+end subroutine  write_nice_vector
 
 end module scf_main
