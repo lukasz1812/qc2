@@ -142,7 +142,7 @@ subroutine scf_prog(input)
     !>Symmetric orhonormalizer
     real(wp),allocatable :: xab(:,:)
 
-    !> Pointer for result file
+    !> Pointer for files
     integer :: io,io2,io3,io4
 
     !>Control over print on screen
@@ -165,10 +165,16 @@ subroutine scf_prog(input)
     !> strings length
     integer::length
 
+    !>Test of files
+    logical:: FileExist
+
     !> Test of directory
     logical:: dirExists
     character(len=8)::option
+
     real(wp), allocatable:: density_point(:)
+    character(len=10) :: molecules
+    character(len=25) :: check_input
     allocate(density_point(3))
 
 
@@ -186,10 +192,28 @@ subroutine scf_prog(input)
     write(*,*) "Give the input file name :"
     read(*,*) input_name
 
+    molecules="molecules/"
+    check_input(1:10)=molecules
+    check_input(11:25)=input_name
+    inquire( file=trim(check_input), exist=FileExist )
+
+      if(FileExist) then
+      else
+        write(*,*)
+        write(*,*)"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       !!  Error  !!      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░"
+        write(*,*)
+        write(*,*) "                          Input file does not exist."
+        write(*,*) "                                                    Check input and try again."
+        write(*,*)
+        write(*,*)
+        stop
+      end if
+
     !Setting prefix of the output file
     length=len(trim(input_name))
     allocate(character(length) :: output_name)  ! Note the correct form
     output_name=input_name(1:length-3)
+
 
     ! Check if the directory exists first
     inquire( file=output_name//"-results"//'/.', exist=dirExists )
@@ -199,10 +223,13 @@ subroutine scf_prog(input)
     else
       write(*,*)
       write(*,*)"Output files directory created"
-    CALL EXECUTE_COMMAND_LINE("mkdir "//output_name//"-results")
+      CALL EXECUTE_COMMAND_LINE("mkdir "//output_name//"-results")
   end if
     !>generating file with results
     open(file=output_name//"-results/"//output_name//"-results.out", newunit=io2)
+
+
+
 
     !> Print banner in output file
     write (io2,*) "═══════════════════════════════════════════════════════════════════════════════════════════════════════"
@@ -241,7 +268,7 @@ subroutine scf_prog(input)
       !Printing what we're gonna do /stdout+file
       write(*,*)
       write(*,*)"#######################################################################################################"
-      write(*,*)"########################                     Restricted                     ##########################"
+      write(*,*)"########################                     Restricted                      ##########################"
       write(*,*)"#######################                     Hartree - Fock                     ########################"
       write(*,*)"#######################################################################################################"
       write(*,*)
@@ -254,6 +281,7 @@ subroutine scf_prog(input)
 
       !> Reading input file
       call input_reader(version,input_name,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis, Option,density_point)
+
       call cpu_time(start)
         allocate(aufpunkt(3,nbf))
       ausgabe_erfolgt=0
@@ -268,12 +296,13 @@ subroutine scf_prog(input)
       allocate (exponents(ng*nbf), coefficients(ng*nbf))
       allocate(eigval(nbf),eigvec(nbf,nbf),xab(nbf,nbf),Fock(nbf,nbf),cab(nbf,nbf),pab(nbf,nbf), hab(nbf,nbf), Fock_new(nbf,nbf),gabcd(nbf,nbf))
 
+
       !>Slater Expansion into Gaussians
       call expansion(ng, nbf, zeta, exponents, coefficients,io2,ausgabe_erfolgt)
 
 
       !>Starting the restricted Hartree Fock Routine
-      call restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, zeta, aufpunkt, pab)
+      call restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
 
 
       call cpu_time(finish)
@@ -311,20 +340,20 @@ subroutine scf_prog(input)
               write(*,*)"                    • Geometry optimization"
               write(io2,*)"                    • Geometry optimization"
               write(io4,*)"                    • Geometry optimization"
-              call opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf, ausgabe_erfolgt,io2, zeta, aufpunkt,pab,io4)
+              call opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf, ausgabe_erfolgt,io2, zeta, aufpunkt,pab,io4, eigval)
               close(io4)
           case ("opt_expo")
             open(file=output_name//"-results/"//"expoopt-results.out", newunit=io4)
             write(*,*)"                    • Optimization of Slater exponents"
             write(io2,*)"                    • Optimization of Slater exponents"
             write(io4,*)"                    • Optimization of Slater exponents"
-            call opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf,aufpunkt,pab,io4)
+            call opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf,aufpunkt,pab,io4, eigval)
             close(io4)
           case ("chrg_den")
             write(*,*)"                    • Charge density calculation"
             write(io2,*)"                    • Charge denisty calculation"
 
-            call charge_density(zeta, pab, cab, nbf, aufpunkt,density_point,io2)
+            call charge_density(pab, nbf, aufpunkt,density_point,io2,exponents,coefficients, ng)
           case ("plotbash")
 
               write(*,*)"Final SCF energy",Erep+escf
@@ -342,10 +371,10 @@ subroutine scf_prog(input)
             write(*,*)"                                 chrg_den : calculation of charge_density."
         end select
       end if
-      !call  mulliken(nbf,pab,sab)
+
 
       !deallocate (exponents, coefficients)
-      deallocate(eigval,eigvec,xab,Fock, hab, Fock_new,gabcd)
+      deallocate(eigvec,xab,Fock, hab, Fock_new,gabcd)
 
     case ("UHF")
 
@@ -384,7 +413,8 @@ subroutine scf_prog(input)
       call expansion(ng, nbf, zeta, exponents, coefficients,io2,ausgabe_erfolgt)
 
       !>Starting the restricted Hartree Fock Routine
-      call unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, aufpunkt, zeta)
+      call unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, aufpunkt, zeta, eigval)
+
 
       call cpu_time(finish)
       write(*,*)
@@ -401,8 +431,10 @@ subroutine scf_prog(input)
       write(io2,*)"         for SCF         ", finishscf-startscf, "s"
 
       if(trim(option)=="none") then
-
+        stop
       else
+        write(*,*)
+        write(*,*)
         write(*,*)
         write(*,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
         write(*,*)"             │                                  OPTIONS                                 │"
@@ -414,10 +446,13 @@ subroutine scf_prog(input)
 
 
         !> Option selection
+          write(*,*)Option
         select case(Option)
+
           case ("plotbash")
 
               write(*,*)"Final SCF energy",escf+erep
+
             case default
             write(*,*)
             write(*,*)"                    ┌──────────────────────────────────────────────────────┐"
@@ -539,7 +574,9 @@ subroutine input_reader(version,input,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis,opt
     close(io)
   end if
 
-
+write(*,*)"##############################################################################################################################################"
+write(*,*)option
+write(*,*)"##############################################################################################################################################"
     !>variab│ e check stdout+file
     write(*,*)
     write(*,*) "                          ╔═════════════════════════════════════════════════╗"
@@ -612,28 +649,24 @@ subroutine NucRep(nat,xyz,chrg,Erep,io2, ausgabe_erfolgt)     !EXERCISE 3
   end if
 
   !Setting counters and taking care about selfcounting
-  j=1
-  i=j+1
+
 
   !treating a single atom case
   if (nat==1) then
     Erep=0
   else
     !looping over all atom pairs
-    do while (i<=nat)
-
+    do i=1, nat-1
+      do j=i+1, nat
       !>Calculating nuclear repulsion energy between two attoms
       diff=xyz(1:3,j)-xyz(1:3,i)
-      distance=sum(sqrt(diff**2))
+      distance=sqrt(sum(diff**2))
       partRep=(chrg(j)*chrg(i))/distance
-      !>Summing energies to get the repulsion of the system
+      !>Summing energies to get the repulsion of the systemRep
       Erep=Erep+partRep
 
-
-      j=j+1
-      i=i+1
-
     end do
+  end do
 
   end if
 
@@ -705,18 +738,18 @@ end subroutine expansion
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    RESTRICTED FOCK >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- subroutine restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, zeta, aufpunkt,pab)
+ subroutine restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, zeta, aufpunkt,pab, eigval)
 
 
    integer :: nbf, nel,nat, io2, ng, io3, i, ausgabe_erfolgt
    real(wp) :: delta, Erep, escf, newescf, evenergy, zeta(:)
    real :: finishtei, starttei,finishscf, startscf
-   real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:)
+   real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:), eigval(:)
    real(wp), allocatable:: packsab(:), packtab(:), packvab(:), sab(:,:), tab(:,:), vab(:,:), xab(:,:),hab(:,:), Fock(:,:), Fock_new(:,:)
-   real(wp),allocatable :: eigval(:), cab(:,:), pab(:,:), gabcd(:,:), twointeg(:), aufpunkt(:,:)
+   real(wp),allocatable :: cab(:,:), pab(:,:), gabcd(:,:), twointeg(:), aufpunkt(:,:)
    real(wp),allocatable :: eigvec(:,:), basis(:)
 
-   allocate(packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2),xab(nbf,nbf), eigval(nbf), eigvec(nbf,nbf), Fock(nbf,nbf),Fock_new(nbf,nbf))
+   allocate(packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2),xab(nbf,nbf), eigvec(nbf,nbf), Fock(nbf,nbf),Fock_new(nbf,nbf))
    allocate(hab(nbf,nbf), sab(nbf,nbf), tab(nbf,nbf), vab(nbf,nbf), cab(nbf,nbf), gabcd(nbf,nbf))
    allocate(twointeg(((nbf*(nbf-1)/2+nbf)*(nbf*(nbf-1)/2+nbf)/2+(nbf*(nbf-1)/2+nbf)-1)))
 
@@ -769,7 +802,7 @@ end subroutine expansion
     end if
 
     !>calculating coefficients from the initial Fock matrix
-    call coeff(cab,Fock,xab,nbf,io2,ausgabe_erfolgt)
+    call coeff(cab,eigval,Fock,xab,nbf,io2,ausgabe_erfolgt)
 
     !>Calculating two electron integrals
     call twoIntegrals(aufpunkt, exponents, coefficients, twointeg, ng,nbf,starttei,finishtei)
@@ -829,13 +862,13 @@ end subroutine expansion
     !>Starting SCF Procedure
     write(*,*)
     write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
-    write(*,*)"    ║                                         SCF ITERATIONS                                      ║ "
+    write(*,*)"    ║                                       SCF ITERATIONS                                        ║ "
     write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
     write(*,*)
     write(io2,*)
     write(io2,*)
     write(io2,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
-    write(io2,*)"    ║                                         SCF ITERATIONS                                      ║ "
+    write(io2,*)"    ║                                       SCF ITERATIONS                                        ║ "
     write(io2,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
     write(io2,*)
     end if
@@ -854,7 +887,7 @@ end subroutine expansion
     do while (delta>0.0000000000001.and.i<50)
 
       !Calling the steps
-      call iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt)
+      call iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt, eigval)
 
       !Calculating energy change
       delta=escf-newescf
@@ -926,10 +959,11 @@ end subroutine expansion
     end if
   !  escf=escf
 
-    !call mulliken(nat, nel, nbf,pab,sab, chrg, basis)
+    call mulliken(nat, nel, nbf,pab,sab, chrg, basis)
 
+    call aomo8(nbf,cab, twointeg, nel, eigval,io2)
 
-  deallocate(packsab,packtab,packvab,xab,eigval,eigvec,Fock,Fock_new)
+  deallocate(packsab,packtab,packvab,xab,eigvec,Fock,Fock_new)
   deallocate(hab,sab,tab,vab,cab,gabcd, twointeg)
 
   end subroutine restrictedHF
@@ -994,7 +1028,7 @@ subroutine oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,i
   if(ausgabe_erfolgt==0) then
     !Printing some results /file
     write(*,*)
-    write(*,*)"                     –––––––   Done, all matrices saved in results.txt   –––––––"
+    write(*,*)"                    –––––––   Done, all matrices saved in results file   –––––––"
     write(*,*)
     write(io2,*)
     call write_nice_matrix(sab, "Overlap Matrix S",io2)
@@ -1130,15 +1164,15 @@ end subroutine oneelint
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  NEW COEFFICIENTS   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  subroutine coeff(cab,Fock,xab,nbf,io2,ausgabe_erfolgt) !Exercise 8.3
+  subroutine coeff(cab, eigval,Fock,xab,nbf,io2,ausgabe_erfolgt) !Exercise 8.3
 
     !>Declaration of local variables
     integer :: io2,nbf,stat,i,j,k,l, ij,kl,ijkl, m, n, final,ausgabe_erfolgt
-    real(wp) :: cab(:,:),Fock(:,:),xab(:,:)
-    real(wp), allocatable :: Fockprim(:,:),packFockprim(:),eigval(:),eigvec(:,:)
+    real(wp) :: cab(:,:),Fock(:,:),xab(:,:), eigval(:)
+    real(wp), allocatable :: Fockprim(:,:),packFockprim(:),eigvec(:,:)
 
     !Allocation of needed memory
-    allocate(Fockprim(nbf,nbf), packFockprim(nbf*(nbf+1)/2), eigval(nbf), eigvec(nbf,nbf))
+    allocate(Fockprim(nbf,nbf), packFockprim(nbf*(nbf+1)/2), eigvec(nbf,nbf))
 
     !Calculation of F' matrix
     Fockprim=matmul(Fock,xab)
@@ -1345,7 +1379,12 @@ end subroutine oneelint
                ij=j*(j-1)/2+i
              endif
 
-             !> Second indexing
+             !> Second indexing!> First indexing
+          if(i>j)then
+            ij=i*(i-1)/2+j
+          else
+            ij=j*(j-1)/2+i
+          endif
              if(k>l) then
                kl=k*(k-1)/2+l
              else
@@ -1402,12 +1441,13 @@ end subroutine newFock
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  SCF ITERATIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt)
+subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt, eigval)
 
   integer :: i,io2,io3,nbf,nel,ng, ausgabe_erfolgt
   real(wp) :: xyz(:,:), exponents(:), coefficients(:), twointeg(:)
-  real(wp) :: Erep,newescf
+  real(wp) :: Erep,newescf, eigval(:)
   real(wp) :: cab(:,:),Fock_new(:,:),xab(:,:), pab(:,:),hab(:,:), gabcd(:,:)
+  real(wp), allocatable :: eig
 
   if (ausgabe_erfolgt==0) then
     !Printing iteration counter
@@ -1426,7 +1466,7 @@ subroutine iterations(io2,cab,Fock_new,xab,nbf,nel,pab,newescf,Erep,hab,gabcd,xy
   end if
 
   !Calculation of the transformed F matrix and new coefficients
-  call coeff(cab,Fock_new,xab,nbf,io3,ausgabe_erfolgt)
+  call coeff(cab, eigval,Fock_new,xab,nbf,io3,ausgabe_erfolgt)
 
   if(ausgabe_erfolgt==0) then
     write(io2,*)"                                 ✓ New orbital coefficients obtained    "
@@ -1495,6 +1535,7 @@ end subroutine iterations
     !>allocate needed memory
     allocate(Mlkn_charge(nbf))
 
+
     !>Matrix multiplikation for Mulliken analysis
     mlkn=matmul(pab,sab)
 
@@ -1535,60 +1576,83 @@ end subroutine iterations
      end do
 
 call write_vector(Mlkn_charge)
+
 end subroutine mulliken
 
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END MULLIKEN CHARGES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START CHARGE DENSITY >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+subroutine charge_density(pab, nbf, aufpunkt,density_point,io2,exponents,coefficients, ng)
 
-    subroutine charge_density(zeta, pab, cab, nbf, aufpunkt,density_point,io2)
+     !>declaration  of local variables
+     real(wp) :: KAB, pab(:,:),rho, aufpunkt(:,:), distance, density_point(:), p(3), expo, coeff
+     real(wp) :: exponents(:), coefficients(:)
+     integer:: i,j,k, nbf,io2, ng, l
 
-      !>declaration  of local variables
-      real(wp) :: KAB, zeta(:), pab(:,:), cab(:,:),rho, aufpunkt(:,:), distance, density_point(:), p(3)
-      integer:: i,j,nbf,io2
+     rho=0
+     do i=1, nbf !zb 2 Slater"
+       do j=1, nbf
 
-      rho=0
-      do i=1, nbf
-        do j=1, nbf
+           do k=ng*(i-1)+1, ng*i ! 12 Gausiians
+             do l=ng*(j-1)+1, ng*j
 
-          if(i==j) then
 
-          distance=sqrt(sum((aufpunkt(1:3,i)-aufpunkt(1:3,j))**2))
-          p=(zeta(i)*aufpunkt(1:3,i)+zeta(j)*aufpunkt(1:3,j))/(zeta(i)+zeta(j))
-         rho=rho+pab(i,j)*exp((-1*(zeta(i)+zeta(j)))*sqrt(sum((density_point-p)**2)))
-       end if
+             !CAlculation of distance between A und B
+             distance=sqrt(sum((aufpunkt(1:3,i)-aufpunkt(1:3,j))**2))
 
-        end do
+             !calculation of exponents alpha+beta
+             expo=exponents(k)+exponents(l)
+
+             !calculation of coefficients of alpha+beta
+             coeff=coefficients(k)*coefficients(l)
+
+             !Calculation of the intermediate Point as weighted mean
+             p=(exponents(k)*aufpunkt(1:3,i)+exponents(l)*(aufpunkt(1:3,j)))/expo
+
+             !Calculation of the coefficient
+             !KAB=((2*exponents(k*i)*exponents(k*j))/((exponents(k*i)*exponents(k*j))*4*atan(1.0)))**(0.75)
+             Kab=exp((-1*exponents(k)*exponents(l)*distance**2/expo))
+
+
+             !Calculation of the density at given point
+             rho=rho+pab(i,j)*KAB*coeff*exp(-expo*sum(((density_point-p)**2)))
+
+           end do
+
       end do
 
-        write(*,*)
-        write(*,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        write(*,*)"      Point coordinates:        x                         y                         z"
-        write(*,*)"                     ",density_point
-        write(*,*)"                        ──────────────────────────────────────────────────────────────────────"
-        write(*,*)"                                            Rho",rho
-        write(*,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        write(io2,*)
-        write(io2,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        write(io2,*)"      Point coordinates:        x                         y                         z"
-        write(io2,*)"                     ",density_point
-        write(io2,*)"                        ──────────────────────────────────────────────────────────────────────"
-        write(io2,*)"                                            Rho",rho
-        write(io2,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+       end do
+     end do
 
-    end subroutine charge_density
+       write(*,*)
+       write(*,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+       write(*,*)"      Point coordinates:        x                         y                         z"
+       write(*,*)"                     ",density_point
+       write(*,*)"                        ──────────────────────────────────────────────────────────────────────"
+       write(*,*)"Rho",rho
+       write(*,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+       write(io2,*)
+       write(io2,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+       write(io2,*)"      Point coordinates:        x                         y                         z"
+       write(io2,*)"                     ",density_point
+       write(io2,*)"                        ──────────────────────────────────────────────────────────────────────"
+       write(io2,*)"                                            Rho",rho
+       write(io2,*)"                        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+end subroutine charge_density
+
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END CHARGE DENSITY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START GEOMETRY OPTIMIZATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf,ausgabe_erfolgt,io2,zeta, aufpunkt, pab, io4)
+  subroutine opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf,ausgabe_erfolgt,io2,zeta, aufpunkt, pab, io4, eigval)
       !>Exercise 15 && 16
 
       !>Declaration of local variables
       integer :: nbf, nel,nat, io2, ng, ausgabe_erfolgt, i, io4,m, j
       real(wp):: Erep, plus, erepminus, der,escf, plusescf, minusescf, eplus, eminus, energy, opt_start, opt_end
       real :: finishtei, starttei,finishscf, startscf, delta
-      real (wp):: xyz(:,:),  coefficients(:), exponents(:)
+      real (wp):: xyz(:,:),  coefficients(:), exponents(:), eigval(:)
       real(wp), allocatable:: basis(:),xyzplus(:,:), xyzminus(:,:), geo_gradient(:,:),chrg(:), pab(:,:), aufpunkt(:,:), zeta(:)
 
       !>allocate needed memory
@@ -1596,13 +1660,11 @@ end subroutine mulliken
 
       call cpu_time(opt_start)
 
-      !> Some stdout+file outpt here
-      m=1
-i=1
-j=1
-
+      !Setting energy limit
       energy=erep+escf
-delta=1
+
+      !Taking care that the loop runs at least one time
+      delta=1
       !>Starting the steepest descent procedure
          do while(delta>0.0000001.and.m<100)
 
@@ -1623,11 +1685,11 @@ delta=1
 
      !>Calculating new values of repulsion and HF Energy in further step
       call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt,zeta, aufpunkt, pab)
+      call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt,zeta, aufpunkt, pab, eigval)
 
      !>Calculating new values of repulsion and HF Energy in backward step
      call NucRep(nat,xyzminus,chrg,Erepminus,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab)
+      call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
 
       !> Calculating al total energies
 
@@ -1659,11 +1721,11 @@ delta=1
 
            !>Calculating new values of repulsion and HF Energy in further step
           call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt,pab)
+          call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt,pab,eigval)
 
          !>Calculating new values of repulsion and HF Energy in further step
           call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab)
+          call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
 
           !>Counter increase
           j=j+1
@@ -1685,9 +1747,9 @@ delta=1
 
              !CAlculating new energies values
              call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt, pab)
+             call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
              call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt,pab)
+             call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
              eminus=minusescf+erepminus
              eplus=plus+plusescf
              der=(eplus-eminus)/2*sum(sqrt(geo_gradient**2))
@@ -1778,6 +1840,7 @@ delta=1
 
          Write(io2,*)
 
+        !We love nice outputs in this version xD
 
                  write(io2,*)"                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
                  write(io2,*)"                             ┃        New atom positions/[Bohr]        ┃ "
@@ -1824,11 +1887,11 @@ end do
    end subroutine opt_geo
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START EXPONENTS OPTIMIZATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf, aufpunkt,pab,io4)
+  subroutine opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf, aufpunkt,pab,io4, eigval)
 
     !>Declaration of local variables
     integer ::  nbf, ng,io2, nat, nel,io3, ausgabe_erfolgt,i,j,k,io4,m
-    real(wp):: zeta(:),xyz(:,:), erep,chrg(:), minusescf, plusescf,escf, delta
+    real(wp):: zeta(:),xyz(:,:), erep,chrg(:), minusescf, plusescf,escf, delta, eigval(:)
     real::start, finish, startscf, finishscf, starttei, finishtei
     real (wp), allocatable:: expo_gradient(:), zeta1(:), zeta2(:), plusexponents(:), pluscoefficients(:), minuexponents(:),change(:), minucoefficients(:),basis(:), aufpunkt(:,:), pab(:,:)
 
@@ -1856,12 +1919,12 @@ do j=1,nbf
 
       !>Expand Slater to Gaussians and calculate RHF Energy
       call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
+      call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
 
 
       !>Expand Slater to Gaussians and calculate RHF Energy
       call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
+      call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
 
 
       expo_gradient(j)=plusescf-minusescf
@@ -1892,11 +1955,11 @@ do j=1,nbf
 
           !>Expand Slater to Gaussians and calculate RHF Energy
          call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
+          call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
 
           !>Expand Slater to Gaussians and calculate RHF Energy
           call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-         call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
+         call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
          expo_gradient(j)=plusescf-minusescf
                  k=k+1
         end do
@@ -1919,7 +1982,7 @@ end do
               write(io4,*)"   ━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━"
              !>Expand Slater to Gaussians and calculate RHF Energy
             call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab)
+             call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
 
                 !Calculating convergence criterion
                 delta=escf-minusescf
@@ -1980,7 +2043,151 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
   end subroutine opt_expo
 
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+  subroutine aomo8(nbf,cab, twointeg, nel, eigval,io2)
 
+    integer :: i, j, k, l, ij,kl,ijkl, p, q, r, s,pq, rs, pqrs, nbf, m,n,o,t,nel, ps, qr, psqr, pr,qs,prqs, io2
+    real(wp) :: emp2, denom, eigval(:), cab(:,:), twointeg(:), temp, evenergy
+    real(wp), allocatable :: teimp(:)
+
+
+  allocate(teimp(((nbf*(nbf-1)/2+nbf)*(nbf*(nbf-1)/2+nbf)/2+(nbf*(nbf-1)/2+nbf)-1)))
+  temp=0
+
+  do p=1,nbf
+    do q=1, nbf
+      do r=1, nbf
+        do s=1, nbf
+          do i=1, nbf
+            do j=1, nbf
+              do k=1, nbf
+                do l=1, nbf
+
+            !> First indexing
+             if(i>j)then
+               ij=i*(i-1)/2+j
+             else
+               ij=j*(j-1)/2+i
+             endif
+             !> second indexing
+              if(k>l)then
+                kl=k*(k-1)/2+l
+              else
+                kl=l*(l-1)/2+k
+              endif
+              !> final indexing
+               if(ij>kl)then
+                 ijkl=ij*(ij-1)/2+kl
+               else
+                 ijkl=kl*(kl-1)/2+ij
+               endif
+
+               !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 2nd Round
+               !> First indexing
+                if(p>q)then
+                  pq=p*(p-1)/2+q
+                else
+                  pq=q*(q-1)/2+p
+                endif
+                !> second indexing
+                 if(r>s)then
+                   rs=r*(r-1)/2+s
+                 else
+                   rs=s*(s-1)/2+r
+                 endif
+                 !> final indexing
+                  if(pq>rs)then
+                    pqrs=pq*(pq-1)/2+rs
+                  else
+                    pqrs=rs*(rs-1)/2+pq
+                  endif
+                         temp=temp+cab(i,p)*cab(j,q)*cab(k,r)*cab(l,s)*twointeg(ijkl)
+
+                  end do
+                end do
+              end do
+            end do
+            teimp(pqrs)=temp
+            temp=0
+          end do
+        end do
+      end do
+    end do
+
+
+
+    emp2=0
+        do p=1, nel/2
+          do q=1, nel/2
+            do r=(nel/2)+1, nbf
+              do s=(nel/2)+1, nbf
+
+                !> First indexing
+                 if(p>r)then
+                   pr=p*(p-1)/2+r
+                 else
+                   pr=r*(r-1)/2+p
+                 endif
+                 !> second indexing
+                  if(q>s)then
+                    qs=q*(q-1)/2+s
+                  else
+                    qs=s*(s-1)/2+q
+                  endif
+                  !> final indexing
+                   if(pr>qs)then
+                     prqs=pr*(pr-1)/2+qs
+                   else
+                     prqs=qs*(qs-1)/2+pr
+                   endif
+                   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 2nd Round
+                   !> First indexing
+                    if(p>s)then
+                      ps=p*(p-1)/2+s
+                    else
+                      ps=s*(s-1)/2+p
+                    endif
+                    !> second indexing
+                     if(q>r)then
+                       qr=q*(q-1)/2+r
+                     else
+                       qr=r*(r-1)/2+q
+                     endif
+                     !> final indexing
+                      if(ps>qr)then
+                        psqr=ps*(ps-1)/2+qr
+                      else
+                        psqr=qr*(qr-1)/2+ps
+                      endif
+                      denom=(eigval(p)+eigval(q)-eigval(r)-eigval(s))
+                      emp2=emp2+ (teimp(prqs)*(2*teimp(prqs)-teimp(psqr)))/denom
+
+
+              end do
+            end do
+          end do
+        end do
+
+        evenergy=(emp2)*1.042*10.**(-21)
+          1 format (a,e20.14,a)
+
+        write(*,*) "                          ┍━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┑"
+        write(*,*) "                          │                 Møller–Plesset 2                │"
+        write(*,*) "                          ├─────────────────────────────────────────────────┤"
+        write(*,*) "                          │E MP2    =", emp2, "H           │"
+        write(*,*) "                          │         =", (emp2)*2.72114, "eV          │"
+        write(*,1) "                           │         =  ", evenergy,"     kcal        │"
+        write(*,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
+        write(io2,*)
+        write(io2,*)
+        write(io2,*)
+        write(io2,*) "                          ┍━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┑"
+        write(io2,*) "                          │                 Møller–Plesset 2                │"
+        write(io2,*) "                          ├─────────────────────────────────────────────────┤"
+        write(io2,*) "                          │E MP2    =", emp2, "H           │"
+        write(io2,*) "                          │         =", (emp2)*2.72114, "eV          │"
+        write(io2,1) "                           │         =  ", emp2,"     kcal        │"
+        write(io2,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
+  end subroutine aomo8
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!              SUBROUTINES FOR UNRESTRICTED CASE              !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2032,8 +2239,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
           end do
 
         end do
-        read(io,*)option
-        write(*,*)option
+        read(io,*)OPTION
 
       !Check id number of electrons is correct
       if(nelbeta>nelalpha) then
@@ -2091,19 +2297,19 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
   end subroutine unrestricted_input_reader
 
   !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END INPUT READER @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  subroutine unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, aufpunkt,zeta)
+  subroutine unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, aufpunkt,zeta, eigval)
 
 
     integer :: nbf, nelalpha, nelbeta,nat, io2, ng, io3, i, ausgabe_erfolgt
     real(wp) :: delta, Erep, escf, newescf
     real :: finishtei, starttei,finishscf, startscf, evenergy
-    real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:)
+    real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:), eigval(:)
     real(wp), allocatable:: packsab(:), packtab(:), packvab(:), sab(:,:), tab(:,:), vab(:,:), xab(:,:),hab(:,:), Fockalpha(:,:), Fockbeta(:,:),Fock_newalpha(:,:),Fock_newbeta(:,:)
-    real(wp),allocatable :: eigval(:), cabalpha(:,:), cabbeta(:,:), pabalpha(:,:), pabbeta(:,:), gabcd(:,:), twointeg(:), aufpunkt(:,:)
+    real(wp),allocatable :: cabalpha(:,:), cabbeta(:,:), pabalpha(:,:), pabbeta(:,:), gabcd(:,:), twointeg(:), aufpunkt(:,:)
     real(wp),allocatable :: eigvec(:,:), basis(:)
       real(wp),allocatable :: zeta(:)
 
-    allocate(packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2),xab(nbf,nbf), eigval(nbf), eigvec(nbf,nbf), Fockalpha(nbf,nbf),Fock_newalpha(nbf,nbf), Fockbeta(nbf,nbf),Fock_newbeta(nbf,nbf))
+    allocate(packsab(nbf*(1+nbf)/2),packtab(nbf*(1+nbf)/2),packvab(nbf*(1+nbf)/2),xab(nbf,nbf), eigvec(nbf,nbf), Fockalpha(nbf,nbf),Fock_newalpha(nbf,nbf), Fockbeta(nbf,nbf),Fock_newbeta(nbf,nbf))
     allocate(hab(nbf,nbf), sab(nbf,nbf), tab(nbf,nbf), vab(nbf,nbf), cabalpha(nbf,nbf), cabbeta(nbf,nbf), pabalpha(nbf,nbf), pabbeta(nbf,nbf), gabcd(nbf,nbf))
     allocate(twointeg(((nbf*(nbf-1)/2+nbf)*(nbf*(nbf-1)/2+nbf)/2+(nbf*(nbf-1)/2+nbf)-1)))
 
@@ -2156,8 +2362,8 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
     end if
 
      !>calculating coefficients from the initial Fock matrix
-     call coeff(cabalpha,Fockalpha,xab,nbf,io2,ausgabe_erfolgt)
-     call coeff(cabbeta,Fockbeta,xab,nbf,io2,ausgabe_erfolgt)
+     call coeff(cabalpha, eigval,Fockalpha,xab,nbf,io2,ausgabe_erfolgt)
+     call coeff(cabbeta,eigval,Fockbeta,xab,nbf,io2,ausgabe_erfolgt)
 
      !>Calculating two electron integrals
      call twoIntegrals(aufpunkt, exponents, coefficients, twointeg, ng,nbf,starttei,finishtei)
@@ -2166,8 +2372,8 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
      if(ausgabe_erfolgt==0) then
 
      !Calculating new density matrices for both spins
-      call unres_new_density(nelalpha, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
-      call unres_new_density(nelbeta, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
+      call unres_new_density(nelalpha,eigval, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
+      call unres_new_density(nelbeta,eigval, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
       write(*,*)
       write(*,*)"     –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––"
       write(*,*)"                <<<<<<<<<<<<<<      Initial guess ended succesfully      >>>>>>>>>>>>>>                 "
@@ -2189,7 +2395,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
      !Printing the initial Fock energy
      write(*,*)
      write(*,*) "                           ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
-     write(*,*) "                           ┃  ", "initial }=", escf, "H  ┃"
+     write(*,*) "                           ┃  ", "initial E_{HF}=", escf, "H  ┃"
      write(*,*) "                           ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
      write(*,*)
      write(io2,*)
@@ -2224,13 +2430,13 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
      !>Starting SCF Procedure
       write(*,*)
       write(*,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
-      write(*,*)"    ║                                         SCF ITERATIONS                                      ║ "
+      write(*,*)"    ║                                       SCF ITERATIONS                                        ║ "
       write(*,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
       write(*,*)
       write(io2,*)
       write(io2,*)
       write(io2,*)"    ╔═════════════════════════════════════════════════════════════════════════════════════════════╗"
-      write(io2,*)"    ║                                         SCF ITERATIONS                                      ║ "
+      write(io2,*)"    ║                                       SCF ITERATIONS                                        ║ "
       write(io2,*)"    ╚═════════════════════════════════════════════════════════════════════════════════════════════╝"
       write(io2,*)
     end if
@@ -2250,7 +2456,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
 
        !Calling the steps
-       call unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,xab,nbf,nelalpha,nelbeta,pabalpha, pabbeta,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt)
+       call unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,xab,nbf,nelalpha,nelbeta,pabalpha, pabbeta,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt, eigval)
 
        !Calculating energy change
        delta=escf-newescf
@@ -2321,7 +2527,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
 
   !    call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAA")
-  !    call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
+          call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta,ng,sab,io2)
 
 
 
@@ -2332,11 +2538,11 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
  !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  NEW UNRES. DENISTY MATRIX   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
- subroutine unres_new_density(nel, nbf,cab,pab,io2,ausgabe_erfolgt) !Exercise 8.4
+ subroutine unres_new_density(nel,eigval, nbf,cab,pab,io2,ausgabe_erfolgt) !Exercise 8.4
 
-   !Declaration of variables
+   !Declaration of local variables
    integer:: i, j, nel,nbf,io2,ausgabe_erfolgt
-   real(wp)::cab(nbf,nbf), pab(nbf,nbf)
+   real(wp)::cab(nbf,nbf), pab(nbf,nbf), eigval(:)
    real(wp), allocatable :: nocc(:,:)
 
    !Allocation of needed memory
@@ -2352,6 +2558,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
      end do
    end do
 
+   write(*,*)
    !CAlculation of the new density matrix
    pab=matmul(nocc,transpose(cab))
    pab=matmul(cab,pab)
@@ -2359,10 +2566,9 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
    if(ausgabe_erfolgt==0) then
      !Printing succes text /stdout+file
-     write(*,*)
      write(*,*)"                                       ✓ Density matrix obtained       "
-     write(*,*)
 end if
+
    deallocate(nocc)
 
  end subroutine unres_new_density
@@ -2488,10 +2694,10 @@ end if
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  SCF ITERATIONS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,xab,nbf,nelalpha,nelbeta,pabalpha, pabbeta,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt)
+subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,xab,nbf,nelalpha,nelbeta,pabalpha, pabbeta,newescf,Erep,hab,gabcd,xyz, exponents,coefficients, twointeg,i,io3,ausgabe_erfolgt, eigval)
 
   integer :: i,io2,io3,nbf,nelalpha,nelbeta,ng, ausgabe_erfolgt
-  real(wp) :: xyz(:,:), exponents(:), coefficients(:), twointeg(:)
+  real(wp) :: xyz(:,:), exponents(:), coefficients(:), twointeg(:), eigval(:)
   real(wp) :: Erep,newescf,escf
   real(wp) :: cabalpha(:,:), cabbeta(:,:),Fock_newalpha(:,:),Fock_newbeta(:,:),xab(:,:), pabalpha(:,:),pabbeta(:,:), hab(:,:), gabcd(:,:)
 
@@ -2518,13 +2724,13 @@ subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,
   write(io2,*)"                                     .............................."
   write(io2,*)"                                           α spin calculation"
   write(io2,*)"                                     .............................."
-  call coeff(cabalpha,Fock_newalpha,xab,nbf,io3,ausgabe_erfolgt)
+  call coeff(cabalpha,eigval,Fock_newalpha,xab,nbf,io3,ausgabe_erfolgt)
 
   if(ausgabe_erfolgt==0) then
     write(io2,*)"                                 ✓ New orbital coefficients obtained    "
   end if
 
-  call unres_new_density(nelalpha, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
+  call unres_new_density(nelalpha,eigval, nbf,cabalpha,pabalpha,io2,ausgabe_erfolgt)
   if(ausgabe_erfolgt==0) then
     write(io2,*)"                                   ✓ New density matrix obtained       "
   end if
@@ -2536,13 +2742,13 @@ subroutine  unrest_iterations(io2,cabalpha, cabbeta,Fock_newalpha,Fock_newbeta ,
   write(io2,*)"                                     .............................."
   write(io2,*)"                                           β spin calculation"
   write(io2,*)"                                     .............................."
-  call coeff(cabbeta,Fock_newbeta,xab,nbf,io3,ausgabe_erfolgt)
+  call coeff(cabbeta,eigval,Fock_newbeta,xab,nbf,io3,ausgabe_erfolgt)
 
   if(ausgabe_erfolgt==0) then
     write(io2,*)"                                 ✓ New orbital coefficients obtained    "
   end if
 
-  call unres_new_density(nelbeta, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
+  call unres_new_density(nelbeta,eigval, nbf,cabbeta,pabbeta,io2,ausgabe_erfolgt)
 
   if(ausgabe_erfolgt==0) then
     write(io2,*)"                                   ✓ New density matrix obtained       "
@@ -2602,59 +2808,47 @@ end subroutine unrest_iterations
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END SCF ITERATIONS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta)
+subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta,ng,sab, io2)
 
   !>Declaration of variables
-  real(wp) :: xyz(:,:), chrg(:), cabalpha(:,:),cabbeta(:,:), exponents(:),basis(:),zeta(:)
-  real(wp), allocatable:: spinsab(:,:), spintab(:,:), spinvab(:,:)
-  real(wp), allocatable::aufpunkt(:,:)
-  integer:: nbf, ng,nat, ausgabe_erfolgt,nelalpha, nelbeta
-  integer :: i, j,io2,k
+  real(wp) :: xyz(:,:), chrg(:), cabalpha(:,:),cabbeta(:,:), exponents(:),basis(:),zeta(:), delta, sab(:,:)
+  real(wp), allocatable:: spinsab(:,:), spintab(:,:), spinvab(:,:), transpcaba(:,:)
+  real(wp), allocatable::aufpunkt(:,:), matrixa(:,:), matrixb(:,:)
+  integer:: nbf, ng,nat, ausgabe_erfolgt,nelalpha, nelbeta, io2, i, j
 
 
   !Allocate needed memory
-  allocate(spinsab(nbf,nbf), spintab(nbf,nbf),spinvab(nbf,nbf))
+  allocate(spinsab(nbf,nbf), spintab(nbf,nbf),spinvab(nbf,nbf), transpcaba(nbf, nbf))
 
+  !Transform the overlap matrices from AO to MO
+  matrixa=matmul(transpose(cabalpha), matmul(sab,cabbeta))
+  matrixa=matrixa**2
 
-  k=0
-  j=1
+  ! Set spincontamination equals number of beta electrons
+  delta=nelbeta
 
-  spinsab=0
-  spintab=0
-  spinvab=0
-  !Run over all atoms
-  do i=1,nat
-
-    !Set counter of basis functions per atom
-    k=k+basis(i)
-      do while(j<=k)
-        !Set aufpunkt for each orbital
-        aufpunkt(1:3,j)=xyz(1:3,i)
-        j=j+1
-      end do
+  do i=1, nelalpha
+    do j=1, nelbeta
+      delta=delta-matrixa(i,j)
     end do
+  end do
 
-
-    !Loop over all electron pairs
-    do i=1, nbf
-
-      do j=1, nbf
-        write(*,*)i, "i", j,"j"
-        !CAlculating one electron integrals (overlap, kinetic enegry, e-nuc attraction)
-        call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),zeta(i:i),zeta(j:j),cabalpha(i:i,i),cabbeta(j:j,j), spinsab(i,j), spintab(i,j), spinvab(i,j))
-
-        write(*,*)aufpunkt(1:3,i),exponents(i:i),cabalpha(i:i,i)
-        write(*,*) aufpunkt(1:3,j),exponents(j:j),cabbeta(j:j,j)
-        write(*,*) spinsab(i,j), spintab(i,j), spinvab(i,j)
-        write(*,*)spinsab(i,j)
-
-      end do
-
-    end do
-
-  
- ! call oneint(xyz,chrg,aufpunkt(1:3,i), aufpunkt(1:3,j),exponents(ng*(i-1)+1:ng*i),exponents(ng*(j-1)+1:ng*j),cab(ng*(i-1)+1:ng*i),cab(ng*(j-1)+1:ng*j), spinsab(i,j), spintab(i,j), spinvab(i,j))
-
+  write(*,*)
+  write(*,*)
+  write(*,*)
+  write(*,*) "                          ┍━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┑"
+  write(*,*) "                          │                Spin Contamination               │"
+  write(*,*) "                          ├─────────────────────────────────────────────────┤"
+  write(*,*) "                          │    ∆    =", delta, "            │"
+  write(*,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
+  write(io2,*)
+  write(io2,*)
+  write(io2,*)
+  write(io2,*) "                          ┍━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┑"
+  write(io2,*) "                          │                Spin Contamination               │"
+  write(io2,*) "                          ├─────────────────────────────────────────────────┤"
+  write(io2,*) "                          │    ∆    =", delta, "            │"
+  write(io2,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
 end subroutine spin_contamination
 
 !▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
@@ -2690,7 +2884,7 @@ subroutine write_nice_matrix(matrix,name,unit)
 
 
    textcenter1=((length-3)-textlength)/2
-   centering=((103-length)-6)/2
+   centering=((103-length)-6)/2+3
    if(centering<0)then
      centering=1
    end if
@@ -2726,7 +2920,7 @@ subroutine write_nice_matrix(matrix,name,unit)
   !write(cmft2(8:9), "(I2)") length-5
   write(cmft3(2:5), "(I4)") centering
   write(cmft3(10:13), "(I4)") length-5
- write(iunit,*)cmft2, centering
+
    write(iunit,cmft2)" ╔═",trim(name),"═╗"
    write(iunit,cmft3)" ║","  ║"
    do i=1, dimension
