@@ -172,6 +172,8 @@ subroutine scf_prog(input)
     logical:: dirExists
     character(len=8)::option
 
+    real(wp) :: emp2, contam
+
     real(wp), allocatable:: density_point(:)
     character(len=10) :: molecules
     character(len=25) :: check_input
@@ -189,7 +191,7 @@ subroutine scf_prog(input)
     call banner
 
     !>Input file name over stdin
-    write(*,*) "Give the input file name :"
+    write(*,"(a)",advance="no") "      Give the input file name :   "
     read(*,*) input_name
 
     molecules="molecules/"
@@ -302,7 +304,7 @@ subroutine scf_prog(input)
 
 
       !>Starting the restricted Hartree Fock Routine
-      call restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
+      call restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, zeta, aufpunkt, pab, eigval,emp2)
 
 
       call cpu_time(finish)
@@ -324,14 +326,19 @@ subroutine scf_prog(input)
 
       else
         write(*,*)
+        write(*,*)
+        write(*,*)"═══════════════════════════════════════════════════════════════════════════════════════════════════════"
+        write(*,*)
         write(*,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
         write(*,*)"             │                                  OPTIONS                                 │"
         write(*,*)"             └──────────────────────────────────────────────────────────────────────────┘"
         write(io2,*)
+        write(io2,*)
+        write(io2,*)"═══════════════════════════════════════════════════════════════════════════════════════════════════════"
+        write(io2,*)
         write(io2,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
         write(io2,*)"             │                                  OPTIONS                                 │"
         write(io2,*)"             └──────────────────────────────────────────────────────────────────────────┘"
-
 
         !> Option selection
         select case(Option)
@@ -340,14 +347,14 @@ subroutine scf_prog(input)
               write(*,*)"                    • Geometry optimization"
               write(io2,*)"                    • Geometry optimization"
               write(io4,*)"                    • Geometry optimization"
-              call opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf, ausgabe_erfolgt,io2, zeta, aufpunkt,pab,io4, eigval)
+              call opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf, ausgabe_erfolgt,io2, zeta, aufpunkt,pab,io4, eigval,emp2)
               close(io4)
           case ("opt_expo")
             open(file=output_name//"-results/"//"expoopt-results.out", newunit=io4)
             write(*,*)"                    • Optimization of Slater exponents"
             write(io2,*)"                    • Optimization of Slater exponents"
             write(io4,*)"                    • Optimization of Slater exponents"
-            call opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf,aufpunkt,pab,io4, eigval)
+            call opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf,aufpunkt,pab,io4, eigval,emp2)
             close(io4)
           case ("chrg_den")
             write(*,*)"                    • Charge density calculation"
@@ -357,6 +364,9 @@ subroutine scf_prog(input)
           case ("plotbash")
 
               write(*,*)"Final SCF energy",Erep+escf
+            case ("plot_mp2")
+
+                write(*,*)"MP2 energy",emp2+erep+escf
           case default
             write(*,*)
             write(*,*)"                    ┌──────────────────────────────────────────────────────┐"
@@ -413,8 +423,7 @@ subroutine scf_prog(input)
       call expansion(ng, nbf, zeta, exponents, coefficients,io2,ausgabe_erfolgt)
 
       !>Starting the restricted Hartree Fock Routine
-      call unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, aufpunkt, zeta, eigval)
-
+      call unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat, nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_erfolgt, aufpunkt, zeta, eigval,contam)
 
       call cpu_time(finish)
       write(*,*)
@@ -435,10 +444,14 @@ subroutine scf_prog(input)
       else
         write(*,*)
         write(*,*)
+        write(*,*)"═══════════════════════════════════════════════════════════════════════════════════════════════════════"
         write(*,*)
         write(*,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
         write(*,*)"             │                                  OPTIONS                                 │"
         write(*,*)"             └──────────────────────────────────────────────────────────────────────────┘"
+        write(io2,*)
+        write(io2,*)
+        write(io2,*)"═══════════════════════════════════════════════════════════════════════════════════════════════════════"
         write(io2,*)
         write(io2,*)"             ┌──────────────────────────────────────────────────────────────────────────┐"
         write(io2,*)"             │                                  OPTIONS                                 │"
@@ -446,13 +459,14 @@ subroutine scf_prog(input)
 
 
         !> Option selection
-          write(*,*)Option
         select case(Option)
 
           case ("plotbash")
 
               write(*,*)"Final SCF energy",escf+erep
 
+            case ("plotcont")
+              write(*,*)"deltacontamination",contam
             case default
             write(*,*)
             write(*,*)"                    ┌──────────────────────────────────────────────────────┐"
@@ -574,9 +588,7 @@ subroutine input_reader(version,input,io,nat,nel,nbf,xyz,chrg,zeta,io2,basis,opt
     close(io)
   end if
 
-write(*,*)"##############################################################################################################################################"
-write(*,*)option
-write(*,*)"##############################################################################################################################################"
+
     !>variab│ e check stdout+file
     write(*,*)
     write(*,*) "                          ╔═════════════════════════════════════════════════╗"
@@ -738,11 +750,11 @@ end subroutine expansion
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    RESTRICTED FOCK >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- subroutine restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, zeta, aufpunkt,pab, eigval)
+ subroutine restrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, zeta, aufpunkt,pab, eigval,emp2)
 
 
-   integer :: nbf, nel,nat, io2, ng, io3, i, ausgabe_erfolgt
-   real(wp) :: delta, Erep, escf, newescf, evenergy, zeta(:)
+   integer :: nbf, nel,nat, io2, ng, io3, i, ausgabe_erfolgt, iterator
+   real(wp) :: delta, Erep, escf, newescf, evenergy, zeta(:),emp2
    real :: finishtei, starttei,finishscf, startscf
    real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:), eigval(:)
    real(wp), allocatable:: packsab(:), packtab(:), packvab(:), sab(:,:), tab(:,:), vab(:,:), xab(:,:),hab(:,:), Fock(:,:), Fock_new(:,:)
@@ -959,9 +971,12 @@ end subroutine expansion
     end if
   !  escf=escf
 
-    call mulliken(nat, nel, nbf,pab,sab, chrg, basis)
+    call mulliken(nat, nel, nbf,pab,sab, chrg, basis, io2)
 
-    call aomo8(nbf,cab, twointeg, nel, eigval,io2)
+    iterator=0
+    call aomo8(nbf,cab, twointeg, nel, eigval,io2, iterator,emp2)
+
+    call aomo5(nbf,cab, twointeg, nel, eigval,io2, iterator)
 
   deallocate(packsab,packtab,packvab,xab,eigvec,Fock,Fock_new)
   deallocate(hab,sab,tab,vab,cab,gabcd, twointeg)
@@ -1525,10 +1540,10 @@ end subroutine iterations
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< MULLIKEN CHARGES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine mulliken(nat,nel, nbf,pab,sab, chrg, basis)
+  subroutine mulliken(nat,nel, nbf,pab,sab, chrg, basis, io2)
 
     !>Declaration of local variables
-    integer::i,j,nbf, begin, finish, nat, nel
+    integer::i,j,nbf, begin, finish, nat, nel,io2
     real(wp)::pab(:,:), sab(:,:), mlkn(nbf,nbf), chrg(:), basis(:), diag(nbf)
     real(wp), allocatable :: Mlkn_charge(:)
 
@@ -1575,7 +1590,9 @@ end subroutine iterations
        end do
      end do
 
-call write_vector(Mlkn_charge)
+call write_nice_vector(Mlkn_charge,7, "Mulliken")
+write(io2,*)
+call write_nice_vector(Mlkn_charge,7, "Mulliken", io2)
 
 end subroutine mulliken
 
@@ -1645,14 +1662,14 @@ end subroutine charge_density
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START GEOMETRY OPTIMIZATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf,ausgabe_erfolgt,io2,zeta, aufpunkt, pab, io4, eigval)
+  subroutine opt_geo(nbf,ng,xyz,chrg,coefficients,exponents,basis,nat,nel,erep, finishtei, starttei, finishscf, startscf,escf,ausgabe_erfolgt,io2,zeta, aufpunkt, pab, io4, eigval,emp2)
       !>Exercise 15 && 16
 
       !>Declaration of local variables
       integer :: nbf, nel,nat, io2, ng, ausgabe_erfolgt, i, io4,m, j
       real(wp):: Erep, plus, erepminus, der,escf, plusescf, minusescf, eplus, eminus, energy, opt_start, opt_end
       real :: finishtei, starttei,finishscf, startscf, delta
-      real (wp):: xyz(:,:),  coefficients(:), exponents(:), eigval(:)
+      real (wp):: xyz(:,:),  coefficients(:), exponents(:), eigval(:), emp2
       real(wp), allocatable:: basis(:),xyzplus(:,:), xyzminus(:,:), geo_gradient(:,:),chrg(:), pab(:,:), aufpunkt(:,:), zeta(:)
 
       !>allocate needed memory
@@ -1685,11 +1702,11 @@ end subroutine charge_density
 
      !>Calculating new values of repulsion and HF Energy in further step
       call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt,zeta, aufpunkt, pab, eigval)
+      call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt,zeta, aufpunkt, pab, eigval,emp2)
 
      !>Calculating new values of repulsion and HF Energy in backward step
      call NucRep(nat,xyzminus,chrg,Erepminus,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
+      call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval,emp2)
 
       !> Calculating al total energies
 
@@ -1721,11 +1738,11 @@ end subroutine charge_density
 
            !>Calculating new values of repulsion and HF Energy in further step
           call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt,pab,eigval)
+          call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt,pab,eigval,emp2)
 
          !>Calculating new values of repulsion and HF Energy in further step
           call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
+          call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval,emp2)
 
           !>Counter increase
           j=j+1
@@ -1747,9 +1764,9 @@ end subroutine charge_density
 
              !CAlculating new energies values
              call NucRep(nat,xyzplus,chrg,plus,io2,ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval)
+             call restrictedHF(nbf,ng,xyzplus,chrg,coefficients,exponents,io2,basis,nat,nel,plus, finishtei, starttei, finishscf, startscf,io2,plusescf,ausgabe_erfolgt, zeta, aufpunkt, pab, eigval,emp2)
              call NucRep(nat,xyzminus,chrg,Erepminus,io2, ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
+             call restrictedHF(nbf,ng,xyzminus,chrg,coefficients,exponents,io2,basis,nat,nel,erepminus, finishtei, starttei, finishscf, startscf,io2, minusescf,ausgabe_erfolgt, zeta, aufpunkt,pab, eigval,emp2)
              eminus=minusescf+erepminus
              eplus=plus+plusescf
              der=(eplus-eminus)/2*sum(sqrt(geo_gradient**2))
@@ -1887,11 +1904,11 @@ end do
    end subroutine opt_geo
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START EXPONENTS OPTIMIZATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-  subroutine opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf, aufpunkt,pab,io4, eigval)
+  subroutine opt_expo(zeta,nbf,ng,io2, nat,nel,io3,xyz, basis,erep,chrg,escf, aufpunkt,pab,io4, eigval,emp2)
 
     !>Declaration of local variables
     integer ::  nbf, ng,io2, nat, nel,io3, ausgabe_erfolgt,i,j,k,io4,m
-    real(wp):: zeta(:),xyz(:,:), erep,chrg(:), minusescf, plusescf,escf, delta, eigval(:)
+    real(wp):: zeta(:),xyz(:,:), erep,chrg(:), minusescf, plusescf,escf, delta, eigval(:),emp2
     real::start, finish, startscf, finishscf, starttei, finishtei
     real (wp), allocatable:: expo_gradient(:), zeta1(:), zeta2(:), plusexponents(:), pluscoefficients(:), minuexponents(:),change(:), minucoefficients(:),basis(:), aufpunkt(:,:), pab(:,:)
 
@@ -1919,12 +1936,12 @@ do j=1,nbf
 
       !>Expand Slater to Gaussians and calculate RHF Energy
       call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
+      call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval,emp2)
 
 
       !>Expand Slater to Gaussians and calculate RHF Energy
       call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-      call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
+      call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval,emp2)
 
 
       expo_gradient(j)=plusescf-minusescf
@@ -1955,11 +1972,11 @@ do j=1,nbf
 
           !>Expand Slater to Gaussians and calculate RHF Energy
          call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-          call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
+          call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval,emp2)
 
           !>Expand Slater to Gaussians and calculate RHF Energy
           call expansion(ng, nbf, zeta2, plusexponents, pluscoefficients,io2,ausgabe_erfolgt)
-         call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
+         call restrictedHF(nbf,ng,xyz,chrg,pluscoefficients,plusexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,plusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval,emp2)
          expo_gradient(j)=plusescf-minusescf
                  k=k+1
         end do
@@ -1982,7 +1999,7 @@ end do
               write(io4,*)"   ━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━"
              !>Expand Slater to Gaussians and calculate RHF Energy
             call expansion(ng, nbf, zeta1, minuexponents, minucoefficients,io2,ausgabe_erfolgt)
-             call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval)
+             call restrictedHF(nbf,ng,xyz,chrg,minucoefficients,minuexponents,io2,basis,nat, nel,erep, finishtei, starttei, finishscf, startscf,io3,minusescf, ausgabe_erfolgt, zeta, aufpunkt,pab, eigval,emp2)
 
                 !Calculating convergence criterion
                 delta=escf-minusescf
@@ -2043,9 +2060,9 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
   end subroutine opt_expo
 
   !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-  subroutine aomo8(nbf,cab, twointeg, nel, eigval,io2)
+  subroutine aomo8(nbf,cab, twointeg, nel, eigval,io2,iterator,emp2)
 
-    integer :: i, j, k, l, ij,kl,ijkl, p, q, r, s,pq, rs, pqrs, nbf, m,n,o,t,nel, ps, qr, psqr, pr,qs,prqs, io2
+    integer :: i, j, k, l, ij,kl,ijkl, p, q, r, s,pq, rs, pqrs, nbf, m,n,o,t,nel, ps, qr, psqr, pr,qs,prqs, io2, iterator
     real(wp) :: emp2, denom, eigval(:), cab(:,:), twointeg(:), temp, evenergy
     real(wp), allocatable :: teimp(:)
 
@@ -2080,7 +2097,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
                else
                  ijkl=kl*(kl-1)/2+ij
                endif
-
+               iterator=iterator+1
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 2nd Round
                !> First indexing
                 if(p>q)then
@@ -2178,21 +2195,185 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
         write(*,1) "                           │         =  ", evenergy,"     kcal        │"
         write(*,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
         write(io2,*)
-        write(io2,*)
-        write(io2,*)
         write(io2,*) "                          ┍━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┑"
         write(io2,*) "                          │                 Møller–Plesset 2                │"
         write(io2,*) "                          ├─────────────────────────────────────────────────┤"
         write(io2,*) "                          │E MP2    =", emp2, "H           │"
         write(io2,*) "                          │         =", (emp2)*2.72114, "eV          │"
-        write(io2,1) "                           │         =  ", emp2,"     kcal        │"
+        write(io2,1) "                           │         =  ", evenergy,"     kcal        │"
         write(io2,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
+
+
+
+
   end subroutine aomo8
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!              SUBROUTINES FOR UNRESTRICTED CASE              !!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+    !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+  subroutine aomo5(nbf,cab, twointeg, nel, eigval,io2,iterator)
+
+         integer :: i,j,k,l,ij,kl,ijkl,io2, nel, nbf, p, q, r, s, pr, qs, prqs, ps, qr, psqr, iterator
+    real(wp) :: emp2, denom, eigval(:), cab(:,:), twointeg(:), evenergy
+
+
+  real(wp) :: temp(nbf*(nbf+1)/2,nbf*(nbf+1)/2),tmp1(nbf,nbf),tmp2(nbf,nbf)
+
+
+     temp=0.0_wp
+
+  !$omp parallel private(i,j,k,l,ij,kl,ijkl,tmp1,tmp2) shared(temp)
+  !$omp do schedule(dynamic)
+     do i = 1, nbf
+        do j = 1, i
+          !> First indexing
+           if(i>j)then
+             ij=i*(i-1)/2+j
+           else
+             ij=j*(j-1)/2+i
+           endif
+           do k = 1, nbf
+              do l = 1, k
+                if(k>l)then
+                  kl=k*(k-1)/2+l
+                else
+                  kl=l*(l-1)/2+k
+                endif
+                if(ij>kl)then
+                  ijkl=ij*(ij-1)/2+kl
+                else
+                  ijkl=kl*(kl-1)/2+ij
+                endif
+                 tmp1(k,l) = twointeg(ijkl)
+                 tmp1(l,k) = twointeg(ijkl)
+              enddo
+           enddo
+            tmp1=matmul(transpose(cab),matmul(tmp1, cab))
+
+           do k = 1, nbf
+              do l = 1, k
+                iterator=iterator-1
+                if(k>l)then
+                  kl=k*(k-1)/2+l
+                else
+                  kl=l*(l-1)/2+k
+                endif
+                 temp(kl,ij) = tmp1(k,l)
+              enddo
+           enddo
+        enddo
+     enddo
+  !$omp enddo
+  !$omp endparallel
+     twointeg = 0.0_wp
+  !$omp parallel private(i,j,k,l,ij,kl,ijkl,tmp1,tmp2) shared(eri)
+  !$omp do schedule(dynamic)
+     do k = 1, nbf
+        do l = 1, k
+          if(k>l)then
+            kl=k*(k-1)/2+l
+          else
+            kl=l*(l-1)/2+k
+          endif
+           do i = 1, nbf
+              do j = 1, i
+                !> First indexing
+                 if(i>j)then
+                   ij=i*(i-1)/2+j
+                 else
+                   ij=j*(j-1)/2+i
+                 endif
+                 tmp1(i,j) = temp(kl,ij)
+                 tmp1(j,i) = temp(kl,ij)
+              enddo
+           enddo
+           tmp1=matmul(transpose(cab),matmul(tmp1, cab))
+
+           do i = 1, nbf
+              do j = 1, i
+                !> First indexing
+                 if(i>j)then
+                   ij=i*(i-1)/2+j
+                 else
+                   ij=j*(j-1)/2+i
+                 endif
+                 if(kl>ij)then
+                   ijkl=kl*(kl-1)/2+ij
+                 else
+                   ijkl=ij*(ij-1)/2+kl
+                 endif
+
+                 twointeg(ijkl) = tmp1(i,j)
+              enddo
+           enddo
+        enddo
+     enddo
+
+     emp2=0
+         do p=1, nel/2
+           do q=1, nel/2
+             do r=(nel/2)+1, nbf
+               do s=(nel/2)+1, nbf
+
+                 !> First indexing
+                  if(p>r)then
+                    pr=p*(p-1)/2+r
+                  else
+                    pr=r*(r-1)/2+p
+                  endif
+                  !> second indexing
+                   if(q>s)then
+                     qs=q*(q-1)/2+s
+                   else
+                     qs=s*(s-1)/2+q
+                   endif
+                   !> final indexing
+                    if(pr>qs)then
+                      prqs=pr*(pr-1)/2+qs
+                    else
+                      prqs=qs*(qs-1)/2+pr
+                    endif
+                    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 2nd Round
+                    !> First indexing
+                     if(p>s)then
+                       ps=p*(p-1)/2+s
+                     else
+                       ps=s*(s-1)/2+p
+                     endif
+                     !> second indexing
+                      if(q>r)then
+                        qr=q*(q-1)/2+r
+                      else
+                        qr=r*(r-1)/2+q
+                      endif
+                      !> final indexing
+                       if(ps>qr)then
+                         psqr=ps*(ps-1)/2+qr
+                       else
+                         psqr=qr*(qr-1)/2+ps
+                       endif
+                       denom=(eigval(p)+eigval(q)-eigval(r)-eigval(s))
+                       emp2=emp2+ (twoInteg(prqs)*(2*twointeg(prqs)-twoInteg(psqr)))/denom
+
+
+               end do
+             end do
+           end do
+         end do
+
+         evenergy=(emp2)*1.042*10.**(-21)
+           1 format (a,i6)
+
+write(*,1)"                       Difference between M⁸ and M⁵ scaled MP2 algorithm : ", iterator
+
+  end subroutine aomo5
+  !▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+  !░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  !░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                              Subroutines                              ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  !░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                         for unrestricted case                         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  !░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  !▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 
   !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   INPUT READER   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -2278,30 +2459,33 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
       write(io2,*)
       write(io2,*)
       Write(io2,*)
-      call write_matrix(xyz, "       ===== Atom positions/[Bohr] =====", io2)
-      write(io2,*)"        ================================="
+      write(io2,*)"                             ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ "
+      write(io2,*)"                             ┃          Atom positions/[Bohr]          ┃ "
+      write(io2,*)"                             ┃      X             Y             Z      ┃ "
+      write(io2,*)"                             ┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩ "
+          do i=1,nat
+            if(i<nat) then
+              write(io2,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+              write(io2,*)"                             ├┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┼┈┈┈┈┈┈┈┈┈┈┈┈┈┤"
+            else
+              write(io2,'(a,i1,a,f9.5,a,f9.5,a,f9.5,a)')"                         ",i,"    │", xyz(1,i),"    ┊",xyz(2,i),"    ┊", xyz(3,i),"    │"
+              write(io2,*)"                             ┕━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┙"
+            end if
+      end do
       write(io2,*)
-      write(io2,*)
-      call write_vector(chrg,  "       == Charge/[q] ==", io2)
-      write(io2,*)"        ================"
-      write(io2,*)
-      write(io2,*)
-      call write_vector(basis,"        == Basis fct. ==", io2)
-      write(io2,*)"        ================"
-      write(io2,*)
-      write(io2,*)
-      call write_vector(zeta,"       ==== ζ exp. ====",io2)
-      write(io2,*)"        ================"
 
+      call write_nice_vector(chrg,4,"Charge/[q]",io2)
+      call write_nice_vector(basis,3,"Basis fct.",io2)
+      call write_nice_vector(zeta,3,"ζ exp.",io2)
 
   end subroutine unrestricted_input_reader
 
   !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END INPUT READER @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  subroutine unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, aufpunkt,zeta, eigval)
+  subroutine unrestrictedHF(nbf,ng,xyz,chrg,coefficients,exponents,io2,basis,nat,nelalpha, nelbeta,erep, finishtei, starttei, finishscf, startscf,io3,escf, ausgabe_Erfolgt, aufpunkt,zeta, eigval, contam)
 
 
     integer :: nbf, nelalpha, nelbeta,nat, io2, ng, io3, i, ausgabe_erfolgt
-    real(wp) :: delta, Erep, escf, newescf
+    real(wp) :: delta, Erep, escf, newescf, contam
     real :: finishtei, starttei,finishscf, startscf, evenergy
     real (wp):: xyz(:,:), chrg(:), coefficients(:), exponents(:), eigval(:)
     real(wp), allocatable:: packsab(:), packtab(:), packvab(:), sab(:,:), tab(:,:), vab(:,:), xab(:,:),hab(:,:), Fockalpha(:,:), Fockbeta(:,:),Fock_newalpha(:,:),Fock_newbeta(:,:)
@@ -2315,6 +2499,8 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
      !>Calculation of one electron integrals
      call oneelint(nbf, ng, xyz, chrg, coefficients, exponents, sab, tab, vab,io2,basis,nat,aufpunkt,ausgabe_Erfolgt)
+
+     contam=0
 
 
      if(ausgabe_erfolgt==0) then
@@ -2527,7 +2713,7 @@ write(io4,*)"Slater exponents optimization done in:",finish-start,"s"
 
 
   !    call write_vector(zeta, "ZETAAAAAAAAAAAAAAAAA")
-          call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta,ng,sab,io2)
+          call spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta,ng,sab,io2,contam)
 
 
 
@@ -2808,7 +2994,7 @@ end subroutine unrest_iterations
 
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ END SCF ITERATIONS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta,ng,sab, io2)
+subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,cabalpha,cabbeta,basis,nbf,zeta,ng,sab, io2,delta)
 
   !>Declaration of variables
   real(wp) :: xyz(:,:), chrg(:), cabalpha(:,:),cabbeta(:,:), exponents(:),basis(:),zeta(:), delta, sab(:,:)
@@ -2849,6 +3035,7 @@ subroutine spin_contamination(nelalpha, nelbeta, xyz, chrg, aufpunkt,exponents,c
   write(io2,*) "                          ├─────────────────────────────────────────────────┤"
   write(io2,*) "                          │    ∆    =", delta, "            │"
   write(io2,*) "                          ┕━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┙"
+
 end subroutine spin_contamination
 
 !▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
