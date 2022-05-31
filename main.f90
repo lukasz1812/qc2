@@ -502,8 +502,8 @@ end subroutine scf_prog
 !–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 !> Below all subroutines used in the scf_prog subroutine are declared, the subroutines are listed in the same order as apearance in the scf_prog
-!In order to make the program structured the beginning of each subroutine is defined by a line of ł the full name of subroutine inbetween
-!the end of each subroutine is followed by a lines od $ with an "-End-" inbetweeen
+!In order to make the program structured the beginning of each subroutine is defined by a line of <> the full name of subroutine inbetween
+!the end of each subroutine is followed by a lines od @ with an "-End-" inbetweeen
 
 
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<    PROGRAM TITLE     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
